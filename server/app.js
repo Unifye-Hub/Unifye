@@ -38,7 +38,12 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
 // Implement CORS
-app.use(cors());
+app.use(cors({
+  origin: function(origin, callback) {
+    return callback(null, true);
+  },
+  credentials: true
+}));
 
 // 2) ROUTES
 app.use('/api/auth', authRoutes);
