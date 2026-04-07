@@ -11,7 +11,7 @@ const MainLayout = () => {
       <footer style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', marginTop: '0' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '1.75rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-            © {new Date().getFullYear()} Unify Events — Built for builders
+            © {new Date().getFullYear()} Unifye Events — Built for builders
           </p>
           <div style={{ display: 'flex', gap: '1.25rem' }}>
             {['Privacy', 'Terms', 'Help'].map(item => (

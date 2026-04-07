@@ -2,8 +2,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import { Menu, X, ChevronDown, Sun, Moon } from 'lucide-react';
-import UnifyDarkLogo from '../assets/UnifyDarkLogo.png';
-import UnifyLightLogo from '../assets/UnifyLightLogo.png';
+import UnifyeDarkLogo from '../assets/UnifyeDarkLogo.png';
+import UnifyeLightLogo from '../assets/UnifyeLightLogo.png';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -78,13 +78,13 @@ const Navbar = () => {
               }}
             >
               <img 
-                src={theme === 'light' ? UnifyDarkLogo : UnifyLightLogo} 
-                alt="Unify Events Logo" 
+                src={theme === 'light' ? UnifyeDarkLogo : UnifyeLightLogo} 
+                alt="Unifye Events Logo" 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
               />
             </div>
             <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-              Unify Events
+              Unifye Events
             </span>
           </Link>
 

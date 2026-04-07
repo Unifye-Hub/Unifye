@@ -67,7 +67,7 @@ const LoginPage = () => {
           <h1 style={{ fontSize: '1.375rem', fontWeight: '700', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '0.375rem' }}>
             Welcome back
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Sign in to Unify Events</p>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Sign in to Unifye Events</p>
         </div>
 
         {/* Card */}
