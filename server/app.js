@@ -16,6 +16,8 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const app = express();
 
 // 1) GLOBAL MIDDLEWARES
+app.set('trust proxy', 1); // Trust Render's reverse proxy for express-rate-limit
+
 // Set security HTTP headers
 app.use(helmet());
 
