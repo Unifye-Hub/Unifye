@@ -39,9 +39,7 @@ app.use(cookieParser());
 
 // Implement CORS
 app.use(cors({
-  origin: function(origin, callback) {
-    return callback(null, true);
-  },
+  origin: true,
   credentials: true
 }));
 
