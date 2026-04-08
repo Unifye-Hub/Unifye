@@ -1,1 +1,8 @@
+# Environment files
 .env
+.env.*
+**/.env
+**/.env.*
+
+# OS
+.DS_Store
