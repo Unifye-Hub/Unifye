@@ -21,7 +21,6 @@ router.post(
 );
 
 // ─── GET /api/groups/my ───────────────────────────────────────────────────────
-// NOTE: Must be defined BEFORE /:id routes to avoid "my" being treated as an id
 router.get('/my', groupController.getUserGroups);
 
 // ─── GET /api/groups/event/:eventId ──────────────────────────────────────────
@@ -40,23 +39,34 @@ router.post(
   groupController.joinGroup
 );
 
-// ─── POST /api/groups/:id/invite ─────────────────────────────────────────────
+// ─── POST /api/groups/:id/request ─────────────────────────────────────────────
 router.post(
-  '/:id/invite',
-  [
-    param('id').notEmpty().withMessage('Group ID is required'),
-    body('userId').notEmpty().withMessage('User ID to invite is required'),
-  ],
-  validateRequest,
-  groupController.inviteUser
-);
-
-// ─── POST /api/groups/:id/accept ─────────────────────────────────────────────
-router.post(
-  '/:id/accept',
+  '/:id/request',
   [param('id').notEmpty().withMessage('Group ID is required')],
   validateRequest,
-  groupController.acceptInvite
+  groupController.requestToJoin
+);
+
+// ─── POST /api/groups/:id/accept/:userId ──────────────────────────────────────
+router.post(
+  '/:id/accept/:userId',
+  [
+    param('id').notEmpty().withMessage('Group ID is required'),
+    param('userId').notEmpty().withMessage('User ID is required'),
+  ],
+  validateRequest,
+  groupController.acceptJoinRequest
+);
+
+// ─── POST /api/groups/:id/reject/:userId ──────────────────────────────────────
+router.post(
+  '/:id/reject/:userId',
+  [
+    param('id').notEmpty().withMessage('Group ID is required'),
+    param('userId').notEmpty().withMessage('User ID is required'),
+  ],
+  validateRequest,
+  groupController.rejectJoinRequest
 );
 
 // ─── POST /api/groups/:id/leave ──────────────────────────────────────────────
@@ -67,7 +77,33 @@ router.post(
   groupController.leaveGroup
 );
 
-// ─── POST /api/groups/:id/finalize ────────────────────────────────────────────
+// ─── POST /api/groups/:id/register ────────────────────────────────────────────
+router.post(
+  '/:id/register',
+  [param('id').notEmpty().withMessage('Group ID is required')],
+  validateRequest,
+  groupController.registerGroup
+);
+
+
+// ─── LEGACY ROUTES (Kept for compat) ──────────────────────────────────────────
+router.post(
+  '/:id/invite',
+  [
+    param('id').notEmpty().withMessage('Group ID is required'),
+    body('userId').notEmpty().withMessage('User ID to invite is required'),
+  ],
+  validateRequest,
+  groupController.inviteUser
+);
+
+router.post(
+  '/:id/accept',
+  [param('id').notEmpty().withMessage('Group ID is required')],
+  validateRequest,
+  groupController.acceptInvite
+);
+
 router.post(
   '/:id/finalize',
   [param('id').notEmpty().withMessage('Group ID is required')],

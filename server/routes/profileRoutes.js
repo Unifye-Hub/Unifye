@@ -10,6 +10,7 @@ router.get('/public/:id', profileController.getPublicProfile);
 // All profile routes require authentication
 router.use(protect);
 
+router.get('/search', profileController.searchUsers);
 router.get('/me', profileController.getMe);
 router.put('/update', upload.single('profile_image'), profileController.updateMe); // expects 'profile_image' form-data key for logo/pic
 

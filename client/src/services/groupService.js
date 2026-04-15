@@ -4,9 +4,21 @@ import api from './api';
 export const createGroup = (eventId, name) =>
   api.post('/groups/create', { eventId, name });
 
-// Join a group by its ID
+// Join a group directly (if OPEN)
 export const joinGroup = (groupId) =>
   api.post(`/groups/${groupId}/join`);
+
+// Request to join a group
+export const requestToJoin = (groupId) =>
+  api.post(`/groups/${groupId}/request`);
+
+// Accept a join request (leader only)
+export const acceptJoinRequest = (groupId, userId) =>
+  api.post(`/groups/${groupId}/accept/${userId}`);
+
+// Reject a join request (leader only)
+export const rejectJoinRequest = (groupId, userId) =>
+  api.post(`/groups/${groupId}/reject/${userId}`);
 
 // Invite a user to a group (leader only)
 export const inviteUser = (groupId, userId) =>
@@ -28,6 +40,11 @@ export const getGroupsByEvent = (eventId) =>
 export const getMyGroups = () =>
   api.get('/groups/my');
 
-// Finalize (lock) a group — leader confirms their team is ready
+// Register group for event (leader only, LOCKS group)
+// We still supply this method mapping if we want to call the group endpoint,
+// although the proper way to fully register is through eventService.registerForEvent
 export const finalizeGroup = (groupId) =>
-  api.post(`/groups/${groupId}/finalize`);
+  api.post(`/groups/${groupId}/register`);
+
+export const registerGroup = (groupId) =>
+  api.post(`/groups/${groupId}/register`);

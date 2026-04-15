@@ -91,6 +91,21 @@ class ProfileService {
 
     return profileData;
   }
+
+  async searchUsers(query, limit = 20) {
+    const User = require('../models/User'); // inline require
+    if (!query) return [];
+    
+    const regex = new RegExp(query, 'i');
+    const users = await User.find({
+      $or: [{ name: regex }, { email: regex }]
+    })
+      .select('name email role')
+      .limit(limit)
+      .lean();
+
+    return users;
+  }
 }
 
 module.exports = new ProfileService();

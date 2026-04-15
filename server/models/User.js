@@ -26,6 +26,19 @@ const userSchema = new mongoose.Schema(
       enum: ['participant', 'organizer'],
       default: 'participant',
     },
+    friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    friendRequests: [
+      {
+        from: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        to: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        status: {
+          type: String,
+          enum: ['PENDING', 'ACCEPTED', 'REJECTED'],
+          default: 'PENDING'
+        },
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
   },
   {
     timestamps: true,

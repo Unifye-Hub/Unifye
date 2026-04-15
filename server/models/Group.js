@@ -1,5 +1,21 @@
 const mongoose = require('mongoose');
 
+const joinRequestSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['PENDING', 'ACCEPTED', 'REJECTED'],
+      default: 'PENDING',
+    },
+  },
+  { _id: true }
+);
+
 const groupSchema = new mongoose.Schema(
   {
     eventId: {
@@ -24,37 +40,48 @@ const groupSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
-    invitedUsers: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
+    joinRequests: [joinRequestSchema],
+    // ── Status lifecycle ─────────────────────────────────────────────────────
+    // OPEN   → accepting members (members < maxMembers)
+    // FULL   → maxMembers reached, no direct join allowed
+    // LOCKED → group registered for the event; no further changes allowed
     status: {
       type: String,
-      enum: ['OPEN', 'FULL', 'CLOSED'],
+      enum: ['OPEN', 'FULL', 'LOCKED'],
       default: 'OPEN',
     },
-    // createdAt is handled automatically by timestamps: true
   },
   {
     timestamps: true,
   }
 );
 
-// ─── Pre-validate: Ensure leader is always in members ───────────────────────
-// Using pre('validate') so it fires on both create() and save()
+// ─── Pre-validate: leader is always in members (synchronous) ─────────────────
 groupSchema.pre('validate', function () {
   if (!this.leaderId) return;
-
-  const leaderStr = this.leaderId.toString();
-  const memberStrs = this.members.map((m) => m.toString());
-
+  const leaderIdValue = this.leaderId._id || this.leaderId;
+  const leaderStr = leaderIdValue.toString();
+  
+  const memberStrs = this.members.map((m) => {
+    return (m && m._id) ? m._id.toString() : m?.toString();
+  });
+  
   if (!memberStrs.includes(leaderStr)) {
-    this.members.unshift(this.leaderId);
+    this.members.unshift(leaderIdValue);
   }
+
+  // Deduplicate array entirely (useful for wiping out past duplicates natively)
+  const uniqueStrs = new Set();
+  const uniqueMembers = [];
+  this.members.forEach(m => {
+    const s = (m && m._id) ? m._id.toString() : m?.toString();
+    if (s && !uniqueStrs.has(s)) {
+      uniqueStrs.add(s);
+      uniqueMembers.push(m);
+    }
+  });
+  this.members = uniqueMembers;
 });
-// ─────────────────────────────────────────────────────────────────────────────
 
 // Prevent a user from being in two groups for the same event
 groupSchema.index({ eventId: 1, members: 1 });

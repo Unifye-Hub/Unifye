@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMyProfile, getPublicProfile, updateProfile } from '../services/eventService';
 import toast from 'react-hot-toast';
-import { Upload, X, Briefcase, MapPin, Link2, Edit2, Shield, CalendarDays, GitBranch, Calendar, Users } from 'lucide-react';
+import { Upload, X, Briefcase, MapPin, Link2, Edit2, Shield, CalendarDays, GitBranch, Calendar, Users, UserPlus, UserCheck, Clock } from 'lucide-react';
 import { FaLinkedin, FaInstagram, FaTwitter, FaMedium } from 'react-icons/fa';
 import EventCard from '../components/EventCard';
+import { getFriendStatus, sendFriendRequest, acceptFriendRequest } from '../services/friendService';
 
 const ProfilePage = () => {
   const { id } = useParams();
@@ -17,6 +18,7 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('about');
+  const [friendStatus, setFriendStatus] = useState(null);
   
   const [form, setForm] = useState({});
   const [preview, setPreview] = useState(null);
@@ -62,6 +64,16 @@ const ProfilePage = () => {
             instagram_public: p.instagram_public || false,
           });
           setPreview(p.logo_url);
+        }
+
+        if (!isOwnProfile && user && profileRole === 'participant') {
+          // Both are users, we can view friend status
+          try {
+            const statusRes = await getFriendStatus(p.profile_id?._id || id);
+            setFriendStatus(statusRes.data.data.relationship);
+          } catch(e) {
+            console.error("Error fetching friend status", e);
+          }
         }
       } catch {
         toast.error('Failed to load profile');
@@ -141,6 +153,28 @@ const ProfilePage = () => {
       toast.error(err.response?.data?.message || 'Failed to update');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendRequest = async () => {
+    try {
+      const targetId = profile?.profile_id?._id || id;
+      await sendFriendRequest(targetId);
+      toast.success('Friend request sent!');
+      setFriendStatus('PENDING_SENT');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send request');
+    }
+  };
+
+  const handleAcceptRequest = async () => {
+    try {
+      const targetId = profile?.profile_id?._id || id;
+      await acceptFriendRequest(targetId);
+      toast.success('Friend request accepted!');
+      setFriendStatus('FRIEND');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to accept request');
     }
   };
 
@@ -242,7 +276,31 @@ const ProfilePage = () => {
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageChange} />
               </div>
-              {/* No more Open to work Right Action Area */}
+              {/* Right Action Area */}
+              {!isOwnProfile && isParticipant && user && (
+                <div style={{ marginBottom: '1rem' }}>
+                  {friendStatus === 'FRIEND' && (
+                    <button disabled style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'not-allowed', fontSize: '0.875rem' }}>
+                      <UserCheck size={16} /> Friends
+                    </button>
+                  )}
+                  {friendStatus === 'PENDING_SENT' && (
+                    <button disabled style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'not-allowed', fontSize: '0.875rem' }}>
+                      <Clock size={16} /> Requested
+                    </button>
+                  )}
+                  {friendStatus === 'PENDING_RECEIVED' && (
+                    <button onClick={handleAcceptRequest} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.875rem' }}>
+                      <UserCheck size={16} /> Accept Request
+                    </button>
+                  )}
+                  {friendStatus === 'NOT_FRIEND' && (
+                    <button onClick={handleSendRequest} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.875rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+                      <UserPlus size={16} /> Add Friend
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Content Area */}

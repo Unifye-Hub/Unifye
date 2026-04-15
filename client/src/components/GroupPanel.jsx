@@ -1,15 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Users, Plus, LogIn, LogOut, UserPlus, Crown, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Users, Plus, LogIn, LogOut, UserPlus, Crown, ChevronDown, ChevronUp, Check, X, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   createGroup,
   joinGroup,
+  requestToJoin,
+  acceptJoinRequest,
+  rejectJoinRequest,
   leaveGroup,
-  inviteUser,
   acceptInvite,
   getGroupsByEvent,
-  finalizeGroup,
+  registerGroup,
 } from '../services/groupService';
+import { registerForEvent } from '../services/eventService';
+import { getFriends } from '../services/friendService';
+import { Link } from 'react-router-dom';
 
 // ─── Small sub-components ──────────────────────────────────────────────────────
 
@@ -28,14 +33,18 @@ const MemberChip = ({ member, isLeader }) => (
     }}>
       {isLeader ? <Crown size={10} /> : (member.name?.[0] || '?').toUpperCase()}
     </div>
-    <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{member.name || member.email}</span>
+    <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+      <Link to={`/profile/${member._id || member}`} style={{ textDecoration: 'none', color: 'inherit' }} className="hover:underline">
+        {member.name || member.email}
+      </Link>
+    </span>
     {isLeader && (
       <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: '600', marginLeft: '2px' }}>Leader</span>
     )}
   </div>
 );
 
-const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsInAnyGroup }) => {
+const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsInAnyGroup, onRegisterSuccess, allFriends }) => {
   const [expanded, setExpanded] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteUserId, setInviteUserId] = useState('');
@@ -51,6 +60,12 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
     (u) => (u._id || u) === currentUserId || (u._id || u).toString() === currentUserId
   );
 
+  const hasRequested = group.joinRequests?.some(
+    (r) => (r.userId?._id || r.userId) === currentUserId && r.status === 'PENDING'
+  );
+
+  const pendingRequests = group.joinRequests?.filter(r => r.status === 'PENDING') || [];
+
   const handleJoin = async () => {
     setActing(true);
     try {
@@ -59,6 +74,39 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
       onAction();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to join group');
+    } finally { setActing(false); }
+  };
+
+  const handleRequestJoin = async () => {
+    setActing(true);
+    try {
+      await requestToJoin(group._id);
+      toast.success('Join request sent!');
+      onAction();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send request');
+    } finally { setActing(false); }
+  };
+
+  const handleAcceptRequest = async (userId) => {
+    setActing(true);
+    try {
+      await acceptJoinRequest(group._id, userId);
+      toast.success('Request accepted');
+      onAction();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to accept request');
+    } finally { setActing(false); }
+  };
+
+  const handleRejectRequest = async (userId) => {
+    setActing(true);
+    try {
+      await rejectJoinRequest(group._id, userId);
+      toast.success('Request rejected');
+      onAction();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reject request');
     } finally { setActing(false); }
   };
 
@@ -73,7 +121,7 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
     } finally { setActing(false); }
   };
 
-  const handleAccept = async () => {
+  const handleAcceptInvite = async () => {
     setActing(true);
     try {
       await acceptInvite(group._id);
@@ -97,32 +145,44 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
     } finally { setInviting(false); }
   };
 
+  const handleInviteFriend = async (friendId) => {
+    setInviting(true);
+    try {
+      await inviteUser(group._id, friendId);
+      toast.success('Friend added to group directly!');
+      onAction();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add friend');
+    } finally { setInviting(false); }
+  };
+
   const handleRegisterGroup = async () => {
-    // Frontend guard: enforce minimum members before hitting the backend
     const minM = event?.groupConfig?.minMembers;
     const maxM = event?.groupConfig?.maxMembers;
 
     if (minM && group.members.length < minM) {
-      toast.error(`You need at least ${minM} members to finalize. Currently ${group.members.length}.`);
-      return;
-    }
-    if (maxM && group.members.length > maxM) {
-      toast.error(`Your group exceeds the max of ${maxM} members. Remove some members first.`);
+      toast.error(`You need at least ${minM} members to register. Currently ${group.members.length}.`);
       return;
     }
 
     setActing(true);
     try {
-      await finalizeGroup(group._id);
-      toast.success('Group finalized! Your team is locked in. ✅');
+      // Instead of groupService.registerGroup, we use eventService's full checkout 
+      // so it creates actual Registration docs in DB
+      await registerForEvent(event._id);
+      toast.success('Group registered for the event! Your team is LOCKED. ✅');
+      if (onRegisterSuccess) onRegisterSuccess();
       onAction();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to finalize group');
+      const msg = err.response?.data?.message || 'Registration failed';
+      toast.error(msg);
     } finally {
       setActing(false);
     }
   };
 
+  const maxMembers = event?.groupConfig?.maxMembers || '∞';
+  
   return (
     <div style={{
       background: 'var(--bg-card)', border: isMember ? '1px solid var(--accent)' : '1px solid var(--border)',
@@ -151,8 +211,8 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
               {isMember && <span style={{ marginLeft: '0.5rem', fontSize: '0.65rem', color: 'var(--accent)', fontWeight: '700' }}>YOUR GROUP</span>}
             </p>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
-              {group.members?.length || 0} member{group.members?.length !== 1 ? 's' : ''} ·
-              <span style={{ marginLeft: '4px', color: group.status === 'OPEN' ? 'var(--success)' : group.status === 'FULL' ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+              {group.members?.length || 0} / {maxMembers} members ·
+              <span style={{ marginLeft: '4px', color: group.status === 'OPEN' ? 'var(--success)' : group.status === 'FULL' ? 'var(--danger)' : group.status === 'LOCKED' ? 'var(--accent)' : 'var(--text-tertiary)' }}>
                 {group.status}
               </span>
             </p>
@@ -175,65 +235,138 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
             })}
           </div>
 
+          {/* Pending Requests Array (Leader only) */}
+          {isLeader && pendingRequests.length > 0 && group.status !== 'LOCKED' && (
+            <div style={{ marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem' }}>
+                Join Requests
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                {pendingRequests.map((req) => {
+                  const reqUser = req.userId;
+                  if (!reqUser) return null;
+                  return (
+                    <div key={reqUser._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', border: '1px dashed var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: 'var(--accent)', fontWeight: '700' }}>
+                          {(reqUser.name?.[0] || '?').toUpperCase()}
+                        </div>
+                        <div>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '500', lineHeight: 1.2 }}>{reqUser.name}</p>
+                          <p style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', lineHeight: 1.2 }}>{reqUser.email}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button onClick={() => handleAcceptRequest(reqUser._id)} disabled={acting} style={{ padding: '0.25rem', background: 'var(--success)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: '#fff' }} title="Accept">
+                          <Check size={12} />
+                        </button>
+                        <button onClick={() => handleRejectRequest(reqUser._id)} disabled={acting} style={{ padding: '0.25rem', background: 'var(--danger)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: '#fff' }} title="Reject">
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {/* Accept invite */}
-            {isInvited && !isMember && (
-              <button onClick={handleAccept} disabled={acting} className="btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
-                <UserPlus size={13} /> Accept Invite
-              </button>
-            )}
-
-            {/* Join (non-member, open) */}
-            {!isMember && !isInvited && group.status === 'OPEN' && eventStatus === 'upcoming' && (
-              userIsInAnyGroup ? (
-                <div style={{
-                  fontSize: '0.75rem', color: 'var(--text-tertiary)',
-                  textAlign: 'center', padding: '0.5rem 0.25rem',
-                  border: '1px dashed var(--border)', borderRadius: 'var(--radius)',
-                }}>
-                  Leave your current group first to join this one.
-                </div>
-              ) : (
-                <button onClick={handleJoin} disabled={acting} className="btn-secondary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
-                  <LogIn size={13} /> {acting ? 'Joining...' : 'Join Group'}
-                </button>
-              )
-            )}
-
-            {/* Register group (leader only, group is still open/full but not closed) */}
-            {isMember && isLeader && group.status !== 'CLOSED' && eventStatus === 'upcoming' && (
-              <button onClick={handleRegisterGroup} disabled={acting} className="btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
-                {acting ? 'Registering...' : 'Register Group for Event'}
-              </button>
-            )}
-
-            {/* Already registered */}
-            {group.status === 'CLOSED' && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--success)', textAlign: 'center' }}>Group registered for this event</p>
-            )}
-
-            {/* Invite (leader only) */}
-            {isMember && isLeader && group.status === 'OPEN' && (
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                <input
-                  value={inviteUserId}
-                  onChange={e => setInviteUserId(e.target.value)}
-                  placeholder="Paste User ID to invite..."
-                  className="input-premium"
-                  style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem 0.6rem' }}
-                />
-                <button onClick={handleInvite} disabled={inviting} className="btn-secondary" style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', whiteSpace: 'nowrap' }}>
-                  <UserPlus size={12} /> {inviting ? '...' : 'Invite'}
-                </button>
+            {/* If group is locked, disable actions */}
+            {group.status === 'LOCKED' ? (
+              <div style={{ textAlign: 'center', padding: '0.75rem', background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', borderRadius: 'var(--radius)', fontSize: '0.8rem', fontWeight: '600' }}>
+                <Check size={14} style={{ inlineSize: '14px', verticalAlign: 'text-bottom', marginRight: '4px' }}/>
+                Group Registered and Locked
               </div>
-            )}
+            ) : (
+              <>
+                {/* Accept invite */}
+                {isInvited && !isMember && (
+                  <button onClick={handleAcceptInvite} disabled={acting} className="btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
+                    <UserPlus size={13} /> Accept Invite
+                  </button>
+                )}
 
-            {/* Leave */}
-            {isMember && group.status !== 'CLOSED' && (
-              <button onClick={handleLeave} disabled={acting} className="btn-ghost" style={{ fontSize: '0.75rem', padding: '0.4rem', color: 'var(--danger)' }}>
-                <LogOut size={12} /> Leave Group
-              </button>
+                {/* Join / Request to Join (non-member) */}
+                {!isMember && !isInvited && eventStatus === 'upcoming' && (
+                  userIsInAnyGroup ? (
+                    <div style={{
+                      fontSize: '0.75rem', color: 'var(--text-tertiary)',
+                      textAlign: 'center', padding: '0.5rem 0.25rem',
+                      border: '1px dashed var(--border)', borderRadius: 'var(--radius)',
+                    }}>
+                      Leave your current group first to join this one.
+                    </div>
+                  ) : group.status === 'FULL' ? (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--danger)', textAlign: 'center', padding: '0.5rem' }}>
+                      This group is full.
+                    </div>
+                  ) : hasRequested ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--warning)', textAlign: 'center', padding: '0.5rem', background: 'color-mix(in srgb, var(--warning) 10%, transparent)', borderRadius: 'var(--radius)' }}>
+                      <Clock size={12} /> Join Request Pending
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {/* Direct Join is allowed ONLY if friend with leader */}
+                      {group.status === 'OPEN' && group.isFriendWithLeader && (
+                        <button onClick={handleJoin} disabled={acting} className="btn-secondary" style={{ flex: 1, fontSize: '0.8rem', padding: '0.5rem' }}>
+                          <LogIn size={13} /> {acting ? 'Joining...' : 'Join Directly'}
+                        </button>
+                      )}
+                      
+                      {/* Also allow Request to Join for everyone */}
+                      {group.status === 'OPEN' && (
+                         <button onClick={handleRequestJoin} disabled={acting} className="btn-secondary" style={{ flex: 1, fontSize: '0.8rem', padding: '0.5rem' }}>
+                           <UserPlus size={13} /> Request to Join
+                         </button>
+                      )}
+                    </div>
+                  )
+                )}
+
+                {/* Register group (leader only, group is open/full but not locked) */}
+                {isMember && isLeader && eventStatus === 'upcoming' && (
+                  <button onClick={handleRegisterGroup} disabled={acting} className="btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
+                    {acting ? 'Registering...' : 'Register Group for Event'}
+                  </button>
+                )}
+
+                {/* Invite (leader only) */}
+                {isMember && isLeader && group.status === 'OPEN' && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem' }}>
+                      Suggested Friends
+                    </p>
+                    {allFriends && allFriends.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {allFriends.map(friend => (
+                          <div key={friend._id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between', padding: '0.4rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: 'var(--text-primary)', fontWeight: 'bold' }}>
+                                {(friend.name?.[0] || '?').toUpperCase()}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{friend.name}</span>
+                            </div>
+                            <button onClick={() => handleInviteFriend(friend._id)} disabled={inviting} className="btn-secondary" style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem' }}>
+                              <UserPlus size={12} style={{ display: 'inline', marginRight: '4px' }}/> Add
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>You don't have any friends available to invite.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Leave Group */}
+                {isMember && (
+                  <button onClick={handleLeave} disabled={acting} className="btn-ghost" style={{ fontSize: '0.75rem', padding: '0.4rem', color: 'var(--danger)' }}>
+                    <LogOut size={12} /> Leave Group
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -250,6 +383,7 @@ const GroupPanel = ({ event, currentUserId, onRegisterSuccess }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [friendsList, setFriendsList] = useState([]);
 
   const { eventType, groupConfig } = event;
   const supportsGroups = eventType === 'GROUP' || eventType === 'BOTH';
@@ -265,27 +399,59 @@ const GroupPanel = ({ event, currentUserId, onRegisterSuccess }) => {
     }
   }, [event._id]);
 
+  const fetchFriends = useCallback(async () => {
+    try {
+      const res = await getFriends();
+      setFriendsList(res.data.data.friends || []);
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
   useEffect(() => {
-    if (supportsGroups) fetchGroups();
-  }, [supportsGroups, fetchGroups]);
+    if (supportsGroups) {
+      fetchGroups();
+      fetchFriends();
+    }
+  }, [supportsGroups, fetchGroups, fetchFriends]);
 
   // Determine if the current user is in ANY group for this event
-  const userIsInAnyGroup = groups.some((g) =>
+  const userIsInAnyGroup = useMemo(() => groups.some((g) =>
     g.members?.some((m) => (m._id || m)?.toString() === currentUserId?.toString())
-  );
+  ), [groups, currentUserId]);
 
-  // Sort: user's own group first, then alphabetically
-  const sortedGroups = [...groups].sort((a, b) => {
+  // Determine available friends across all groups
+  const availableFriends = useMemo(() => {
+    return friendsList.filter(friend => {
+      // check if friend is in any group
+      const inAnyGroup = groups.some(g => g.members?.some(m => (m._id || m).toString() === friend._id.toString()));
+      return !inAnyGroup;
+    });
+  }, [friendsList, groups]);
+
+  // Sort: user's own group first, then friends' groups, then others alphabetically
+  const sortedGroups = useMemo(() => [...groups].sort((a, b) => {
     const aIsOwn = a.members?.some((m) => (m._id || m)?.toString() === currentUserId?.toString());
     const bIsOwn = b.members?.some((m) => (m._id || m)?.toString() === currentUserId?.toString());
     if (aIsOwn && !bIsOwn) return -1;
     if (!aIsOwn && bIsOwn) return 1;
+
+    if (a.isFriendWithLeader && !b.isFriendWithLeader) return -1;
+    if (!a.isFriendWithLeader && b.isFriendWithLeader) return 1;
+
     return a.name.localeCompare(b.name);
-  });
+  }), [groups, currentUserId]);
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!groupName.trim()) { toast.error('Enter a group name'); return; }
+    
+    // Prevent creating if already in a group
+    if (userIsInAnyGroup) {
+      toast.error('You are already part of a group for this event.');
+      return;
+    }
+
     setCreating(true);
     try {
       await createGroup(event._id, groupName.trim());
@@ -296,23 +462,6 @@ const GroupPanel = ({ event, currentUserId, onRegisterSuccess }) => {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create group');
     } finally { setCreating(false); }
-  };
-
-  const handleRegisterForEvent = async () => {
-    try {
-      await registerForEvent(event._id);
-      toast.success('Group registered for the event!');
-      if (onRegisterSuccess) onRegisterSuccess();
-      fetchGroups();
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Registration failed';
-      if (msg.toLowerCase().includes('already')) {
-        toast('Group already registered.');
-        if (onRegisterSuccess) onRegisterSuccess();
-      } else {
-        toast.error(msg);
-      }
-    }
   };
 
   if (!supportsGroups) return null;
@@ -400,6 +549,8 @@ const GroupPanel = ({ event, currentUserId, onRegisterSuccess }) => {
               eventStatus={event.status}
               event={event}
               userIsInAnyGroup={userIsInAnyGroup}
+              onRegisterSuccess={onRegisterSuccess}
+              allFriends={availableFriends}
             />
           ))}
         </div>

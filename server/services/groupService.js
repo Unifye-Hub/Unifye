@@ -1,39 +1,32 @@
 const Group = require('../models/Group');
 const Event = require('../models/Event');
+const User = require('../models/User'); // Required for friend logic calculations
 const AppError = require('../utils/appError');
 
-class GroupService {
-  // ─── 1. Create a group ──────────────────────────────────────────────────────
-  /**
-   * Creates a new group for an event.
-   * - Validates the event exists and supports group participation.
-   * - Ensures the creator is not already in another group for the same event.
-   * - Adds the creator as leader and first member.
-   */
-  async createGroup(userId, eventId, groupName) {
-    // Check event exists
-    const event = await Event.findById(eventId);
-    if (!event) {
-      throw new AppError('Event not found', 404);
-    }
+function syncStatus(group, maxMembers) {
+  if (group.status === 'LOCKED') return;
+  if (maxMembers && group.members.length >= maxMembers) {
+    group.status = 'FULL';
+  } else {
+    group.status = 'OPEN';
+  }
+}
 
-    // Check the event allows group participation
-    // Treat undefined/missing eventType as INDIVIDUAL (legacy events)
+class GroupService {
+  async createGroup(userId, eventId, groupName) {
+    const event = await Event.findById(eventId);
+    if (!event) throw new AppError('Event not found', 404);
+
     const mode = event.eventType || 'INDIVIDUAL';
     if (mode === 'INDIVIDUAL') {
-      throw new AppError('This event does not support group participation. The organizer must enable Group or Both mode.', 400);
+      throw new AppError('This event does not support group participation.', 400);
     }
 
-    // Check user is not already in a group for this event
-    const existingGroup = await Group.findOne({
-      eventId,
-      members: userId,
-    });
+    const existingGroup = await Group.findOne({ eventId, members: userId });
     if (existingGroup) {
       throw new AppError('You are already part of a group for this event', 400);
     }
 
-    // Create the group (pre-save hook will ensure leader is in members)
     const group = await Group.create({
       eventId,
       name: groupName,
@@ -44,263 +37,235 @@ class GroupService {
     return group;
   }
 
-  // ─── 2. Join a group ────────────────────────────────────────────────────────
-  /**
-   * Allows a user to join an open group.
-   * - Validates group exists and is OPEN.
-   * - Ensures user is not already a member.
-   * - Enforces maxMembers limit from the event's groupConfig.
-   * - Marks group as FULL if maxMembers is reached.
-   */
-  async joinGroup(userId, groupId) {
-    const group = await Group.findById(groupId).populate('eventId');
-    if (!group) {
-      throw new AppError('Group not found', 404);
-    }
+  async joinGroupDirect(userId, groupId) {
+    const group = await Group.findById(groupId).populate('eventId').populate('leaderId', 'friends');
+    if (!group) throw new AppError('Group not found', 404);
 
-    if (group.status !== 'OPEN') {
-      throw new AppError('This group is not open for new members', 400);
-    }
+    if (group.status === 'LOCKED') throw new AppError('This group is locked', 400);
+    if (group.status === 'FULL')   throw new AppError('This group is full', 400);
+    if (group.status !== 'OPEN')   throw new AppError('This group is not open', 400);
 
-    // Check user is not already a member
     const isMember = group.members.some((m) => m.toString() === userId.toString());
-    if (isMember) {
-      throw new AppError('You are already a member of this group', 400);
+    if (isMember) throw new AppError('You are already a member of this group', 400);
+
+    const existing = await Group.findOne({ eventId: group.eventId._id || group.eventId, members: userId });
+    if (existing) throw new AppError('You are already part of another group for this event', 400);
+
+    // Enforce friend checking
+    const leader = group.leaderId;
+    const isFriendWithLeader = leader.friends.some((f) => f.toString() === userId.toString());
+    
+    if (!isFriendWithLeader) {
+      throw new AppError('Only friends of the group leader can join directly', 403);
     }
 
-    // Check user is not in another group for this event
-    const existingGroup = await Group.findOne({
-      eventId: group.eventId,
-      members: userId,
-      _id: { $ne: groupId },
-    });
-    if (existingGroup) {
-      throw new AppError('You are already part of another group for this event', 400);
-    }
-
-    // Enforce maxMembers from event's groupConfig
-    const { groupConfig } = group.eventId;
-    if (groupConfig && groupConfig.maxMembers) {
-      if (group.members.length >= groupConfig.maxMembers) {
-        throw new AppError('This group has reached the maximum member limit', 400);
-      }
+    const maxM = group.eventId?.groupConfig?.maxMembers;
+    if (maxM && group.members.length >= maxM) {
+      throw new AppError('This group has reached the maximum member limit', 400);
     }
 
     group.members.push(userId);
-
-    // Mark as FULL if limit is now reached
-    if (groupConfig && groupConfig.maxMembers && group.members.length >= groupConfig.maxMembers) {
-      group.status = 'FULL';
-    }
-
+    syncStatus(group, maxM);
     await group.save();
     return group;
   }
 
-  // ─── 3. Invite a user ──────────────────────────────────────────────────────
-  /**
-   * Leader invites a user to the group.
-   * - Only the leader can invite.
-   * - Prevents duplicate or existing member invitations.
-   */
-  async inviteUser(leaderId, groupId, userId) {
-    const group = await Group.findById(groupId);
-    if (!group) {
-      throw new AppError('Group not found', 404);
-    }
-
-    // Only leader can invite
-    if (group.leaderId.toString() !== leaderId.toString()) {
-      throw new AppError('Only the group leader can invite users', 403);
-    }
-
-    if (group.status !== 'OPEN') {
-      throw new AppError('Cannot invite to a group that is not open', 400);
-    }
-
-    // Check user is not already a member
-    const isMember = group.members.some((m) => m.toString() === userId.toString());
-    if (isMember) {
-      throw new AppError('User is already a member of this group', 400);
-    }
-
-    // Check user is not already invited
-    const isInvited = group.invitedUsers.some((u) => u.toString() === userId.toString());
-    if (isInvited) {
-      throw new AppError('User has already been invited', 400);
-    }
-
-    group.invitedUsers.push(userId);
-    await group.save();
-    return group;
-  }
-
-  // ─── 4. Accept an invite ───────────────────────────────────────────────────
-  /**
-   * Invited user accepts the invite — moves from invitedUsers to members.
-   * - Validates the group still has capacity.
-   * - Marks group as FULL if maxMembers is reached.
-   */
-  async acceptInvite(userId, groupId) {
+  async requestToJoin(userId, groupId) {
     const group = await Group.findById(groupId).populate('eventId');
-    if (!group) {
-      throw new AppError('Group not found', 404);
-    }
+    if (!group) throw new AppError('Group not found', 404);
 
-    // Must be in invitedUsers
-    const inviteIndex = group.invitedUsers.findIndex(
-      (u) => u.toString() === userId.toString()
+    if (group.status === 'LOCKED') throw new AppError('This group is locked', 400);
+    if (group.status === 'FULL')   throw new AppError('This group is full', 400);
+
+    const isMember = group.members.some((m) => m.toString() === userId.toString());
+    if (isMember) throw new AppError('You are already a member of this group', 400);
+
+    const exists = group.joinRequests.some(
+      (r) => (r.userId?._id?.toString() || r.userId.toString()) === userId.toString() && r.status === 'PENDING'
     );
-    if (inviteIndex === -1) {
-      throw new AppError('You do not have a pending invite for this group', 403);
-    }
+    if (exists) throw new AppError('You already have a pending request for this group', 400);
 
-    if (group.status !== 'OPEN') {
-      throw new AppError('This group is no longer accepting members', 400);
-    }
+    const existing = await Group.findOne({ eventId: group.eventId._id || group.eventId, members: userId });
+    if (existing) throw new AppError('You are already part of another group for this event', 400);
 
-    // Enforce maxMembers
-    const { groupConfig } = group.eventId;
-    if (groupConfig && groupConfig.maxMembers) {
-      if (group.members.length >= groupConfig.maxMembers) {
-        throw new AppError('This group has reached the maximum member limit', 400);
-      }
-    }
-
-    // Move user from invitedUsers → members
-    group.invitedUsers.splice(inviteIndex, 1);
-    group.members.push(userId);
-
-    // Mark as FULL if limit reached
-    if (groupConfig && groupConfig.maxMembers && group.members.length >= groupConfig.maxMembers) {
-      group.status = 'FULL';
-    }
-
+    group.joinRequests.push({ userId, status: 'PENDING' });
     await group.save();
     return group;
   }
 
-  // ─── 5. Leave a group ──────────────────────────────────────────────────────
-  /**
-   * User leaves a group.
-   * - Regular member: simply removed.
-   * - Leader: next member is promoted, or group is deleted if no members remain.
-   */
-  async leaveGroup(userId, groupId) {
+  async acceptJoinRequest(leaderId, groupId, requestUserId) {
+    const group = await Group.findById(groupId).populate('eventId');
+    if (!group) throw new AppError('Group not found', 404);
+
+    if (group.leaderId.toString() !== leaderId.toString()) {
+      throw new AppError('Only the group leader can accept requests', 403);
+    }
+    if (group.status === 'LOCKED') throw new AppError('Group is locked', 400);
+    
+    const maxM = group.eventId?.groupConfig?.maxMembers;
+    if (maxM && group.members.length >= maxM) {
+      throw new AppError('Group is already full', 400);
+    }
+
+    // Ensure user isn't already grouped
+    const existing = await Group.findOne({ eventId: group.eventId._id || group.eventId, members: requestUserId });
+    if (existing) throw new AppError('This user is already part of another group for this event', 400);
+
+    const reqIdx = group.joinRequests.findIndex(
+      (r) => (r.userId?._id?.toString() || r.userId.toString()) === requestUserId.toString() && r.status === 'PENDING'
+    );
+    if (reqIdx === -1) throw new AppError('No pending request from this user', 404);
+
+    group.joinRequests[reqIdx].status = 'ACCEPTED';
+    group.members.push(requestUserId);
+    syncStatus(group, maxM);
+    await group.save();
+    return group;
+  }
+
+  async rejectJoinRequest(leaderId, groupId, requestUserId) {
     const group = await Group.findById(groupId);
-    if (!group) {
-      throw new AppError('Group not found', 404);
+    if (!group) throw new AppError('Group not found', 404);
+
+    if (group.leaderId.toString() !== leaderId.toString()) {
+      throw new AppError('Only the group leader can reject requests', 403);
+    }
+
+    const req = group.joinRequests.find(
+      (r) => (r.userId?._id?.toString() || r.userId.toString()) === requestUserId.toString() && r.status === 'PENDING'
+    );
+    if (!req) throw new AppError('No pending request from this user', 404);
+
+    req.status = 'REJECTED';
+    await group.save();
+    return group;
+  }
+
+  // Used by leaders to directly add their friends
+  async inviteUser(leaderId, groupId, requestUserId) {
+    const group = await Group.findById(groupId).populate('eventId').populate('leaderId', 'friends');
+    if (!group) throw new AppError('Group not found', 404);
+
+    if (group.leaderId._id.toString() !== leaderId.toString()) {
+      throw new AppError('Only the leader can add to the group', 403);
+    }
+    if (group.status === 'LOCKED') throw new AppError('Group is locked', 400);
+    if (group.status === 'FULL') throw new AppError('This group is full', 400);
+
+    const existing = await Group.findOne({ eventId: group.eventId._id || group.eventId, members: requestUserId });
+    if (existing) throw new AppError('This user is already part of another group for this event', 400);
+
+    const isFriend = group.leaderId.friends.some((f) => f.toString() === requestUserId.toString());
+    if (!isFriend) throw new AppError('You can only directly add users who are your friends', 403);
+
+    const maxM = group.eventId?.groupConfig?.maxMembers;
+    if (maxM && group.members.length >= maxM) {
+      throw new AppError('Group is Full', 400);
+    }
+
+    group.members.push(requestUserId);
+    syncStatus(group, maxM);
+    await group.save();
+    return group;
+  }
+
+  async leaveGroup(userId, groupId) {
+    const group = await Group.findById(groupId).populate('eventId');
+    if (!group) throw new AppError('Group not found', 404);
+
+    if (group.status === 'LOCKED') {
+      throw new AppError('Group is locked — you cannot leave after registration', 400);
     }
 
     const isMember = group.members.some((m) => m.toString() === userId.toString());
-    if (!isMember) {
-      throw new AppError('You are not a member of this group', 400);
-    }
+    if (!isMember) throw new AppError('You are not a member of this group', 400);
 
     const isLeader = group.leaderId.toString() === userId.toString();
 
-    // Remove user from members list
     group.members = group.members.filter((m) => m.toString() !== userId.toString());
 
     if (isLeader) {
       if (group.members.length === 0) {
-        // No members left — delete the group
         await Group.findByIdAndDelete(groupId);
-        return { message: 'Group disbanded as the leader was the last member' };
+        return { message: 'Group disbanded — leader was the last member' };
       }
-
-      // Promote the next member to leader
       group.leaderId = group.members[0];
     }
 
-    // Re-open the group if it was FULL
-    if (group.status === 'FULL') {
-      group.status = 'OPEN';
-    }
-
+    const maxM = group.eventId?.groupConfig?.maxMembers;
+    syncStatus(group, maxM);
     await group.save();
     return group;
   }
 
-  // ─── 6. Get all groups for an event ────────────────────────────────────────
-  /**
-   * Returns all groups associated with a given event.
-   * Populates leader and member details for the organizer view.
-   */
-  async getGroupsByEvent(eventId) {
-    const event = await Event.findById(eventId);
-    if (!event) {
-      throw new AppError('Event not found', 404);
+  async registerGroup(groupId, leaderId) {
+    const group = await Group.findById(groupId).populate('eventId');
+    if (!group) throw new AppError('Group not found', 404);
+
+    if (group.leaderId.toString() !== leaderId.toString()) {
+      throw new AppError('Only the group leader can register the group', 403);
+    }
+    if (group.status === 'LOCKED') throw new AppError('This group is already registered', 400);
+
+    const event = group.eventId;
+    const { minMembers, maxMembers } = event.groupConfig || {};
+
+    if (minMembers && group.members.length < minMembers) {
+      throw new AppError(`Your group needs at least ${minMembers} members to register.`, 400);
+    }
+    if (maxMembers && group.members.length > maxMembers) {
+      throw new AppError(`Your group exceeds the maximum of ${maxMembers} members.`, 400);
     }
 
-    const groups = await Group.find({ eventId })
-      .populate('leaderId', 'name email')
-      .populate('members', 'name email')
-      .lean();
-
-    return groups;
+    group.status = 'LOCKED';
+    await group.save();
+    return group;
   }
 
-  // ─── 7. Get all groups the user belongs to ─────────────────────────────────
-  /**
-   * Returns all groups a user is a member of across all events.
-   */
+  async getGroupsByEvent(eventId, currentUserId) {
+    const event = await Event.findById(eventId);
+    if (!event) throw new AppError('Event not found', 404);
+
+    const groups = await Group.find({ eventId })
+      .populate('leaderId', 'name email friends')
+      .populate('members', 'name email')
+      .populate('joinRequests.userId', 'name email')
+      .lean();
+
+    // Map `isFriendWithLeader` logically
+    return groups.map(group => {
+      let isFriendWithLeader = false;
+      if (currentUserId && group.leaderId && group.leaderId.friends) {
+        isFriendWithLeader = group.leaderId.friends.some(
+          friendId => friendId.toString() === currentUserId.toString()
+        );
+      }
+
+      // Hide leader's whole friend list from public payload
+      if (group.leaderId) {
+        delete group.leaderId.friends;
+      }
+
+      return {
+        ...group,
+        isFriendWithLeader
+      };
+    });
+  }
+
   async getUserGroups(userId) {
-    const groups = await Group.find({ members: userId })
+    return await Group.find({ members: userId })
       .populate('eventId', 'title date_time location status')
       .populate('leaderId', 'name email')
       .populate('members', 'name email')
       .lean();
-
-    return groups;
   }
-  // ─── 8. Finalize group for event ────────────────────────────────────────────
-  /**
-   * Called by the group leader to lock in their team.
-   * - Validates the leader is making the request.
-   * - Enforces min/max member count from the event's groupConfig.
-   * - Marks the group as CLOSED (team is finalized).
-   * This does NOT create any new Registration documents — individual
-   * spot-claiming already happened via the "Register Now" button.
-   */
+
+  async joinGroup(userId, groupId) {
+    return this.joinGroupDirect(userId, groupId);
+  }
   async finalizeGroup(groupId, leaderId) {
-    const group = await Group.findById(groupId).populate('eventId');
-    if (!group) throw new AppError('Group not found', 404);
-
-    // Only the leader can finalize
-    if (group.leaderId.toString() !== leaderId.toString()) {
-      throw new AppError('Only the group leader can finalize the group', 403);
-    }
-
-    // Already finalized
-    if (group.status === 'CLOSED') {
-      throw new AppError('This group is already finalized', 400);
-    }
-
-    const event = group.eventId; // populated
-    const { minMembers, maxMembers } = event.groupConfig || {};
-
-    // Enforce minimum members
-    if (minMembers && group.members.length < minMembers) {
-      throw new AppError(
-        `Your group needs at least ${minMembers} members to register. Currently you have ${group.members.length}.`,
-        400
-      );
-    }
-
-    // Enforce maximum members (safety guard)
-    if (maxMembers && group.members.length > maxMembers) {
-      throw new AppError(
-        `Your group exceeds the maximum allowed ${maxMembers} members. Please remove some members first.`,
-        400
-      );
-    }
-
-    // Lock the group
-    group.status = 'CLOSED';
-    await group.save();
-
-    return group;
+    return this.registerGroup(groupId, leaderId);
   }
 }
 

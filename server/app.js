@@ -13,6 +13,7 @@ const profileRoutes = require('./routes/profileRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const groupRoutes = require('./routes/groupRoutes');
+const friendRoutes = require('./routes/friendRoutes');
 
 const app = express();
 
@@ -73,6 +74,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/organizers/:id/reviews', reviewRoutes);
 // Note: review creation via POST /api/events/:id/review mapped via eventRoutes -> reviewRoutes (using mergeParams)
 app.use('/api/groups', groupRoutes);
+app.use('/api/friends', friendRoutes);
 
 app.use((req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));

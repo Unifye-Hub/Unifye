@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
-import { Menu, X, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Menu, X, ChevronDown, Sun, Moon, Search } from 'lucide-react';
 import UnifyeDarkLogo from '../assets/UnifyeDarkLogo.png';
 import UnifyeLightLogo from '../assets/UnifyeLightLogo.png';
 
@@ -12,6 +12,7 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (theme === 'light') {
@@ -28,6 +29,15 @@ const Navbar = () => {
     logout();
     navigate('/');
     setUserMenuOpen(false);
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+      setMobileOpen(false);
+    }
   };
 
   const isActive = (path) => location.pathname === path;
@@ -95,6 +105,32 @@ const Navbar = () => {
             {user?.role === 'organizer' && <NavLink to="/organizer" label="Dashboard" />}
             {user?.role === 'organizer' && <NavLink to="/create-event" label="Create Event" />}
           </div>
+
+          {/* Search Bar */}
+          {user && (
+            <form onSubmit={handleSearch} style={{ position: 'relative', margin: '0 1rem', flex: 1, maxWidth: '250px' }} className="hidden-mobile">
+              <input
+                type="text"
+                placeholder="Search friends..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.375rem 2rem 0.375rem 1rem',
+                  fontSize: '0.8125rem',
+                  borderRadius: '16px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+              <Search
+                size={14}
+                style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }}
+              />
+            </form>
+          )}
 
           {/* Desktop Auth */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} className="hidden-mobile">
@@ -215,6 +251,29 @@ const Navbar = () => {
                 {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
               </button>
             </div>
+            {user && (
+              <form onSubmit={handleSearch} style={{ position: 'relative', margin: '0.5rem 0.625rem' }}>
+                <input
+                  type="text"
+                  placeholder="Search friends..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 2.5rem 0.5rem 1rem',
+                    fontSize: '0.875rem',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                />
+                <button type="submit" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+                  <Search size={16} />
+                </button>
+              </form>
+            )}
             <NavLink to="/" label="Discover" />
             {user?.role === 'participant' && <NavLink to="/dashboard" label="My Events" />}
             {user?.role === 'organizer' && <NavLink to="/organizer" label="Dashboard" />}

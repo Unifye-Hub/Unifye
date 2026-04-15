@@ -10,6 +10,7 @@ import ParticipantDashboard from './pages/ParticipantDashboard';
 import OrganizerDashboard from './pages/OrganizerDashboard';
 import CreateEventPage from './pages/CreateEventPage';
 import ProfilePage from './pages/ProfilePage';
+import SearchPage from './pages/SearchPage';
 
 const App = () => {
   return (
@@ -35,6 +36,7 @@ const App = () => {
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/events/:id" element={<EventDetailsPage />} />
+          <Route path="/search" element={<SearchPage />} />
 
           <Route
             path="/dashboard"

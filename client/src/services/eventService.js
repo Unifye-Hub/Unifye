@@ -5,6 +5,7 @@ export const login = (data) => api.post('/auth/login', data);
 export const signup = (data) => api.post('/auth/signup', data);
 
 // Profile
+export const searchUsers = (q) => api.get(`/profile/search?q=${encodeURIComponent(q)}`);
 export const getMyProfile = () => api.get('/profile/me');
 export const getPublicProfile = (id) => api.get(`/profile/public/${id}`);
 export const updateProfile = (data) => {

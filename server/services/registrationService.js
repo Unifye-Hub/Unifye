@@ -87,8 +87,8 @@ class RegistrationService {
 
     const registrations = await Registration.create(registrationDocs, { session });
 
-    // Update group status to CLOSED after successful registration
-    await Group.findByIdAndUpdate(group._id, { status: 'CLOSED' }, { session });
+    // Update group status to LOCKED after successful registration
+    await Group.findByIdAndUpdate(group._id, { status: 'LOCKED' }, { session });
 
     return registrations;
   }
@@ -132,11 +132,10 @@ class RegistrationService {
       }
 
       // ── GROUP ───────────────────────────────────────────────────────────────
-      // For GROUP events, the user first claims a spot via individual registration.
-      // Group formation happens separately in the Groups panel after registration.
+      // For GROUP events, user MUST be part of a group and the leader registers the group.
       else if (eventType === 'GROUP') {
-        result = await this._registerIndividual(eventId, participantId, session);
-        event.current_registrations += 1;
+        result = await this._registerGroup(event, participantId, session);
+        event.current_registrations += result.length;
       }
 
       // ── BOTH ────────────────────────────────────────────────────────────────
