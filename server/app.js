@@ -40,16 +40,25 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
 // Implement CORS
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? ['https://unifye.in', 'https://www.unifye.in'] 
-  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const allowedOrigins = [
+  'https://unifye.in',
+  'https://www.unifye.in',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://unifye.vercel.app' // Vercel preview domain fallback
+];
 
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new AppError('Not allowed by CORS', 403));
+      // For Vercel preview deployments, we might want to allow preview domains
+      if (origin && origin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(new AppError('Not allowed by CORS', 403));
+      }
     }
   },
   credentials: true
