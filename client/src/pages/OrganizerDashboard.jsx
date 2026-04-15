@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Users, Trash2, Search, CalendarDays, MapPin, Edit2 } from 'lucide-react';
+import { Plus, Users, Trash2, Search, CalendarDays, MapPin, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAllEvents, deleteEvent, getEventParticipants } from '../services/eventService';
+import { getGroupsByEvent } from '../services/groupService';
 import { Spinner, EmptyState } from '../components/Loader';
 import toast from 'react-hot-toast';
 
@@ -21,6 +22,9 @@ const OrganizerDashboard = () => {
   const [participantsModal, setParticipantsModal] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [loadingParts, setLoadingParts] = useState(false);
+  const [modalGroups, setModalGroups] = useState([]);
+  const [modalTab, setModalTab] = useState('participants'); // 'participants' | 'groups'
+  const [expandedGroup, setExpandedGroup] = useState(null);
 
   useEffect(() => { fetchEvents(); }, []);
 
@@ -47,9 +51,17 @@ const OrganizerDashboard = () => {
   const handleViewParticipants = async (event) => {
     setParticipantsModal(event);
     setLoadingParts(true);
+    setModalTab('participants');
+    setExpandedGroup(null);
     try {
-      const res = await getEventParticipants(event._id);
-      setParticipants(res.data.data.participants || []);
+      const [partRes, groupRes] = await Promise.allSettled([
+        getEventParticipants(event._id),
+        (event.eventType === 'GROUP' || event.eventType === 'BOTH')
+          ? getGroupsByEvent(event._id)
+          : Promise.resolve(null),
+      ]);
+      setParticipants(partRes.status === 'fulfilled' ? partRes.value.data.data.participants || [] : []);
+      setModalGroups(groupRes.status === 'fulfilled' && groupRes.value ? groupRes.value.data.data.groups || [] : []);
     } catch { toast.error('Failed to load participants'); setParticipants([]); }
     finally { setLoadingParts(false); }
   };
@@ -254,7 +266,7 @@ const OrganizerDashboard = () => {
 
       </div>
 
-      {/* Participants Modal (Glassmorphism matched) */}
+      {/* Participants Modal */}
       {participantsModal && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
@@ -262,9 +274,10 @@ const OrganizerDashboard = () => {
         >
           <div
             className="glass-strong"
-            style={{ width: '100%', maxWidth: '440px', borderRadius: 'var(--radius-xl)', padding: '1.75rem' }}
+            style={{ width: '100%', maxWidth: '520px', borderRadius: 'var(--radius-xl)', padding: '1.75rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
             onClick={e => e.stopPropagation()}
           >
+            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)' }}>Participants</h3>
@@ -278,30 +291,121 @@ const OrganizerDashboard = () => {
               </button>
             </div>
 
-            {loadingParts ? <Spinner /> : participants.length === 0 ? (
-              <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.875rem', padding: '2rem 0' }}>No participants yet</p>
-            ) : (
-              <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                {participants.map((reg, i) => (
-                  <Link 
-                    key={i} 
-                    to={`/profile/${reg.participant_id?._id}`}
-                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'pointer' }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+            {/* Tabs — only for GROUP/BOTH events */}
+            {(participantsModal.eventType === 'GROUP' || participantsModal.eventType === 'BOTH') && (
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                {[{ key: 'participants', label: `All Participants (${participants.length})` }, { key: 'groups', label: `Groups (${modalGroups.length})` }].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setModalTab(tab.key)}
+                    style={{
+                      flex: 1, padding: '0.5rem', borderRadius: 'var(--radius)',
+                      background: modalTab === tab.key ? 'var(--accent)' : 'var(--bg-secondary)',
+                      color: modalTab === tab.key ? '#fff' : 'var(--text-secondary)',
+                      border: 'none', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
                   >
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: '700', color: 'var(--accent)', flexShrink: 0 }}>
-                      {(reg.participant_id?.name || 'U')[0].toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>{reg.participant_id?.name}</p>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reg.participant_id?.email}</p>
-                    </div>
-                    <span className={`badge badge-${reg.status === 'registered' ? 'hackathon' : 'seminar'}`}>{reg.status}</span>
-                  </Link>
+                    {tab.label}
+                  </button>
                 ))}
               </div>
             )}
+
+            {/* Content */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {loadingParts ? <Spinner /> : (
+                <>
+                  {/* ── All Participants Tab ── */}
+                  {(modalTab === 'participants' || participantsModal.eventType === 'INDIVIDUAL') && (
+                    participants.length === 0 ? (
+                      <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.875rem', padding: '2rem 0' }}>No participants yet</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {participants.map((reg, i) => (
+                          <Link
+                            key={i}
+                            to={`/profile/${reg.participant_id?._id}`}
+                            style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', transition: 'transform 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                          >
+                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: '700', color: 'var(--accent)', flexShrink: 0 }}>
+                              {(reg.participant_id?.name || 'U')[0].toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>{reg.participant_id?.name}</p>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reg.participant_id?.email}</p>
+                            </div>
+                            <span style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', borderRadius: '6px', background: reg.registration_type === 'group' ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--bg-hover)', color: reg.registration_type === 'group' ? 'var(--accent)' : 'var(--text-tertiary)', fontWeight: '600' }}>
+                              {reg.registration_type || 'individual'}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {/* ── Groups Tab ── */}
+                  {modalTab === 'groups' && (participantsModal.eventType === 'GROUP' || participantsModal.eventType === 'BOTH') && (
+                    modalGroups.length === 0 ? (
+                      <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.875rem', padding: '2rem 0' }}>No groups formed yet</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                        {modalGroups.map(group => {
+                          const isOpen = expandedGroup === group._id;
+                          return (
+                            <div key={group._id} style={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                              {/* Group header — click to expand */}
+                              <button
+                                onClick={() => setExpandedGroup(isOpen ? null : group._id)}
+                                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', background: 'none', border: 'none', cursor: 'pointer', gap: '0.75rem' }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                                  <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Users size={14} color="var(--accent)" />
+                                  </div>
+                                  <div style={{ textAlign: 'left' }}>
+                                    <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>{group.name}</p>
+                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{group.members?.length || 0} members · <span style={{ color: group.status === 'CLOSED' ? 'var(--success)' : 'var(--text-tertiary)' }}>{group.status}</span></p>
+                                  </div>
+                                </div>
+                                {isOpen ? <ChevronUp size={14} color="var(--text-tertiary)" /> : <ChevronDown size={14} color="var(--text-tertiary)" />}
+                              </button>
+
+                              {/* Members list */}
+                              {isOpen && (
+                                <div style={{ padding: '0 1rem 1rem', borderTop: '1px solid var(--border)' }}>
+                                  <p style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0.75rem 0 0.5rem' }}>Members</p>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                                    {(group.members || []).map((member, mi) => {
+                                      const mid = member._id || member;
+                                      const isLeader = mid?.toString() === (group.leaderId?._id || group.leaderId)?.toString();
+                                      return (
+                                        <div key={mi} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 0.625rem', background: 'var(--bg-card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: isLeader ? 'var(--accent)' : 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: '700', color: isLeader ? '#fff' : 'var(--text-tertiary)', flexShrink: 0 }}>
+                                            {(member.name || '?')[0].toUpperCase()}
+                                          </div>
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-primary)' }}>{member.name || 'Unknown'}</p>
+                                            <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.email}</p>
+                                          </div>
+                                          {isLeader && <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: '700', flexShrink: 0 }}>Leader</span>}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

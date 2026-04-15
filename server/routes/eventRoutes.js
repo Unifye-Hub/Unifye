@@ -5,6 +5,7 @@ const { protect } = require('../middleware/authMiddleware');
 const { restrictTo } = require('../middleware/roleMiddleware');
 const { validateRequest } = require('../middleware/validationMiddleware');
 const upload = require('../middleware/uploadMiddleware');
+const registrationController = require('../controllers/registrationController');
 
 // Nested routers
 const registrationRouter = require('./registrationRoutes');
@@ -14,13 +15,21 @@ const router = express.Router();
 
 // Mount nested routes
 // e.g. /api/events/:id/register -> goes to registrationRouter
-router.use('/:id/participants', registrationRouter); // Note: handled explicitly in registrationRoutes if needed 
+router.use('/:id/participants', registrationRouter);
 router.use('/:id/register', registrationRouter);
-router.use('/:id/reviews', reviewRouter); // if using exact REST nested, but let's mount directly
+router.use('/:id/reviews', reviewRouter);
 
 // Public routes
 router.get('/', eventController.getAllEvents);
 router.get('/:id', eventController.getEvent);
+
+// Participant: check own registration status (must come BEFORE the organizer-only wall below)
+router.get(
+  '/:id/my-registration',
+  protect,
+  restrictTo('participant'),
+  registrationController.getMyRegistration
+);
 
 // Protected routes (Organizer only)
 router.use(protect);

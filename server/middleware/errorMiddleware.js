@@ -36,6 +36,7 @@ const sendErrorProd = (err, res) => {
   } else {
     // Programming or other unknown error: don't leak error details
     console.error('ERROR 💥', err);
+    require('fs').appendFileSync('/tmp/unifye-error.log', new Date().toISOString() + ' ERROR: ' + err.stack + '\n');
     res.status(500).json({
       status: 'error',
       message: 'Something went very wrong!',

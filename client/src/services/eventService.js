@@ -28,6 +28,7 @@ export const deleteEvent = (id) => api.delete(`/events/${id}`);
 // Registrations
 export const registerForEvent = (id) => api.post(`/events/${id}/register`);
 export const getEventParticipants = (id) => api.get(`/events/${id}/participants`);
+export const getMyRegistration = (id) => api.get(`/events/${id}/my-registration`);
 
 // Reviews
 export const createReview = (id, data) => api.post(`/events/${id}/reviews`, data);

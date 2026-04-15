@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, Users, Tag, ArrowLeft, CheckCircle2, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getEvent, registerForEvent, createReview } from '../services/eventService';
+import { getEvent, registerForEvent, createReview, getMyRegistration } from '../services/eventService';
+import { getGroupsByEvent } from '../services/groupService';
 import { useAuth } from '../context/AuthContext';
 import { Spinner } from '../components/Loader';
+import GroupPanel from '../components/GroupPanel';
 
 const EVENT_TYPE_BADGE = {
   hackathon: 'badge-hackathon',
@@ -31,19 +33,46 @@ const EventDetailsPage = () => {
   const [reviewScore, setReviewScore] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewSuccess, setReviewSuccess] = useState(false);
+  // Persist review-submitted state across page refreshes using localStorage
+  const reviewStorageKey = `reviewDone_${id}`;
+  const [reviewSuccess, setReviewSuccess] = useState(
+    () => localStorage.getItem(reviewStorageKey) === 'true'
+  );
+  const [groupCount, setGroupCount] = useState(0);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await getEvent(id);
-        setEvent(res.data.data.event);
-      } catch {
-        toast.error('Event not found');
-        navigate('/');
-      } finally { setLoading(false); }
+        const [eventRes, regRes] = await Promise.allSettled([
+          getEvent(id),
+          user?.role === 'participant' ? getMyRegistration(id) : Promise.resolve(null),
+        ]);
+
+        if (eventRes.status === 'fulfilled') {
+          setEvent(eventRes.value.data.data.event);
+        } else {
+          toast.error('Event not found');
+          navigate('/');
+          return;
+        }
+
+        if (regRes.status === 'fulfilled' && regRes.value) {
+          setRegistered(regRes.value.data.data.registered);
+        }
+
+        // Fetch group count for GROUP/BOTH events
+        const evData = eventRes.status === 'fulfilled' ? eventRes.value.data.data.event : null;
+        if (evData && (evData.eventType === 'GROUP' || evData.eventType === 'BOTH')) {
+          try {
+            const gRes = await getGroupsByEvent(evData._id);
+            setGroupCount((gRes.data.data.groups || []).length);
+          } catch { /* non-critical */ }
+        }
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [id, navigate]);
+  }, [id, navigate, user]);
 
   const handleRegister = async () => {
     if (!token) { navigate('/login'); return; }
@@ -55,7 +84,7 @@ const EventDetailsPage = () => {
       toast.success('Registered successfully! 🎉');
     } catch (err) {
       const msg = err.response?.data?.message || 'Registration failed';
-      if (msg.toLowerCase().includes('already') || err.response?.status === 400) {
+      if (msg.toLowerCase().includes('already registered')) {
         setRegistered(true);
         toast('Already registered for this event.');
       } else {
@@ -69,6 +98,7 @@ const EventDetailsPage = () => {
     try {
       await createReview(id, { score: reviewScore, review_text: reviewText });
       setReviewSuccess(true);
+      localStorage.setItem(reviewStorageKey, 'true');
       toast.success('Thanks for your review!');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit review');
@@ -192,46 +222,109 @@ const EventDetailsPage = () => {
                 </p>
               </div>
             )}
+
+            {/* Group Panel — visible to logged-in participants */}
+            {user?.role === 'participant' && (
+              <GroupPanel
+                event={event}
+                currentUserId={user._id}
+                onRegisterSuccess={() => {
+                  setRegistered(true);
+                  setEvent(e => ({ ...e, current_registrations: (e.current_registrations || 0) + 1 }));
+                }}
+              />
+            )}
           </div>
 
           {/* Sidebar */}
           <div style={{ position: 'sticky', top: '72px' }}>
             <div className="glass-strong" style={{ borderRadius: 'var(--radius-xl)', padding: '1.5rem' }}>
               {event.capacity && (
-                <div style={{
-                  textAlign: 'center', marginBottom: '1.25rem', padding: '1rem',
-                  background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-                }}>
-                  <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--text-primary)', letterSpacing: '-0.04em', lineHeight: 1 }}>
-                    {event.current_registrations ?? 0}
-                  </p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
-                    of {event.capacity} spots filled
-                  </p>
-                </div>
+                (event.eventType === 'GROUP' || event.eventType === 'BOTH') ? (
+                  // Two stat cards for group events
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem', marginBottom: '1.25rem' }}>
+                    {/* Card 1: Participants Registered */}
+                    <div style={{
+                      textAlign: 'center', padding: '0.875rem 0.5rem',
+                      background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                    }}>
+                      <p style={{ fontSize: '1.625rem', fontWeight: '700', color: 'var(--text-primary)', letterSpacing: '-0.04em', lineHeight: 1 }}>
+                        {event.current_registrations ?? 0}
+                      </p>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.3rem', lineHeight: 1.3 }}>
+                        of {event.capacity}<br />registered
+                      </p>
+                    </div>
+                    {/* Card 2: Groups Formed */}
+                    <div style={{
+                      textAlign: 'center', padding: '0.875rem 0.5rem',
+                      background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+                      borderRadius: 'var(--radius)',
+                      border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)',
+                    }}>
+                      <p style={{ fontSize: '1.625rem', fontWeight: '700', color: 'var(--accent)', letterSpacing: '-0.04em', lineHeight: 1 }}>
+                        {groupCount}
+                      </p>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.3rem', lineHeight: 1.3 }}>
+                        groups<br />formed
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  // Single stat card for individual events
+                  <div style={{
+                    textAlign: 'center', marginBottom: '1.25rem', padding: '1rem',
+                    background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                  }}>
+                    <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--text-primary)', letterSpacing: '-0.04em', lineHeight: 1 }}>
+                      {event.current_registrations ?? 0}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                      of {event.capacity} spots filled
+                    </p>
+                  </div>
+                )
               )}
 
               {user?.role === 'participant' && event.status === 'upcoming' && (
-                <button
-                  onClick={handleRegister}
-                  disabled={registering || registered || isFull}
-                  className="btn-primary"
-                  style={{
-                    width: '100%', padding: '0.875rem',
-                    background: registered ? 'rgba(62,207,142,0.15)' : isFull ? 'var(--bg-hover)' : 'var(--accent)',
-                    color: registered ? 'var(--success)' : isFull ? 'var(--text-tertiary)' : '#fff',
-                    border: registered ? '1px solid rgba(62,207,142,0.3)' : 'none',
-                    cursor: registered || isFull ? 'default' : 'pointer',
-                    boxShadow: registered || isFull ? 'none' : undefined,
-                    gap: '0.5rem',
-                  }}
-                >
-                  {registered ? (
-                    <><CheckCircle2 size={16} /> Registered</>
-                  ) : registering ? (
-                    <><span style={{ width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Registering...</>
-                  ) : isFull ? 'Event Full' : 'Register Now'}
-                </button>
+                <>
+                  {/* Register Now button — shown for ALL event types */}
+                  <button
+                    onClick={handleRegister}
+                    disabled={registering || registered || isFull}
+                    className="btn-primary"
+                    style={{
+                      width: '100%', padding: '0.875rem',
+                      background: registered ? 'rgba(62,207,142,0.15)' : isFull ? 'var(--bg-hover)' : 'var(--accent)',
+                      color: registered ? 'var(--success)' : isFull ? 'var(--text-tertiary)' : '#fff',
+                      border: registered ? '1px solid rgba(62,207,142,0.3)' : 'none',
+                      cursor: registered || isFull ? 'default' : 'pointer',
+                      boxShadow: registered || isFull ? 'none' : undefined,
+                      gap: '0.5rem',
+                    }}
+                  >
+                    {registered ? (
+                      <><CheckCircle2 size={16} /> Registered</>
+                    ) : registering ? (
+                      <><span style={{ width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Registering...</>
+                    ) : isFull ? 'Event Full' : 'Register Now'}
+                  </button>
+
+                  {/* Post-registration guidance for GROUP events */}
+                  {registered && (event.eventType === 'GROUP' || event.eventType === 'BOTH') && (
+                    <div style={{
+                      marginTop: '0.75rem',
+                      textAlign: 'center', padding: '1rem',
+                      background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+                      borderRadius: 'var(--radius)',
+                      border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+                    }}>
+                      <Users size={18} color="var(--accent)" style={{ marginBottom: '0.4rem' }} />
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '0.25rem' }}>Team Registration Required</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>Scroll down to the <strong>Groups</strong> panel to create or join a team.</p>
+                    </div>
+                  )}
+                </>
               )}
 
               {!user && event.status === 'upcoming' && (

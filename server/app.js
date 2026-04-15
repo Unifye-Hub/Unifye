@@ -12,6 +12,7 @@ const authRoutes = require('./routes/authRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 
 const app = express();
 
@@ -67,10 +68,11 @@ app.use(cors({
 // 2) ROUTES
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/events', eventRoutes); 
+app.use('/api/events', eventRoutes);
 // Note: /api/events/:id/register mapped via eventRoutes
-app.use('/api/organizers/:id/reviews', reviewRoutes); // Handle organizer specifically
+app.use('/api/organizers/:id/reviews', reviewRoutes);
 // Note: review creation via POST /api/events/:id/review mapped via eventRoutes -> reviewRoutes (using mergeParams)
+app.use('/api/groups', groupRoutes);
 
 app.use((req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));

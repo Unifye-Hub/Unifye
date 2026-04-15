@@ -16,9 +16,12 @@ const CreateEventPage = () => {
   const [initialFetchLoading, setInitialFetchLoading] = useState(isEditMode);
   const [preview, setPreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
-  const [form, setForm] = useState({ 
-    title: '', type: 'hackathon', date_time: '', 
-    capacity: '', location: '', description: '' 
+  const [form, setForm] = useState({
+    title: '', type: 'hackathon', date_time: '',
+    capacity: '', location: '', description: '',
+    eventType: 'INDIVIDUAL',
+    minMembers: '',
+    maxMembers: '',
   });
 
   useEffect(() => {
@@ -38,7 +41,10 @@ const CreateEventPage = () => {
             date_time: localIsoString,
             capacity: ev.capacity || '',
             location: ev.location || '',
-            description: ev.description || ''
+            description: ev.description || '',
+            eventType: ev.eventType || 'INDIVIDUAL',
+            minMembers: ev.groupConfig?.minMembers || '',
+            maxMembers: ev.groupConfig?.maxMembers || '',
           });
           setPreview(ev.cover_image);
         } catch (error) {
@@ -75,19 +81,38 @@ const CreateEventPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isEditMode && !imageFile) { toast.error('Please upload a cover image'); return; }
+
+    // Validate group config when required
+    const needsGroupConfig = form.eventType === 'GROUP' || form.eventType === 'BOTH';
+    if (needsGroupConfig) {
+      const min = Number(form.minMembers);
+      const max = Number(form.maxMembers);
+      if (!min || min < 2) { toast.error('Minimum members must be at least 2'); return; }
+      if (!max || max < min) { toast.error('Maximum members must be greater than or equal to minimum members'); return; }
+    }
+
     setLoading(true);
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
+      // Append base fields
+      const { minMembers, maxMembers, eventType, ...baseFields } = form;
+      Object.entries(baseFields).forEach(([k, v]) => { if (v) fd.append(k, v); });
       if (imageFile) fd.append('cover_image', imageFile);
+
+      // Append participation mode fields
+      fd.append('eventType', eventType);
+      if (needsGroupConfig) {
+        fd.append('groupConfig[minMembers]', minMembers);
+        fd.append('groupConfig[maxMembers]', maxMembers);
+      }
 
       if (isEditMode) {
         await updateEvent(id, fd);
-        toast.success('Event updated successfully! 🎉');
+        toast.success('Event updated successfully!');
         navigate('/organizer');
       } else {
         const res = await createEvent(fd);
-        toast.success('Event created! 🎉');
+        toast.success('Event created!');
         navigate(`/events/${res.data.data.event._id}`);
       }
     } catch (err) {
@@ -264,6 +289,72 @@ const CreateEventPage = () => {
                 className="input-premium"
                 style={{ resize: 'none', lineHeight: '1.6' }}
               />
+            </div>
+
+            {/* Participation Mode */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+              <label style={{ ...labelStyle, marginBottom: '0.75rem', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Participation Mode
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.625rem' }}>
+                {[{ value: 'INDIVIDUAL', label: 'Individual', desc: 'Solo only' },
+                  { value: 'GROUP',      label: 'Group',      desc: 'Teams only' },
+                  { value: 'BOTH',       label: 'Both',       desc: 'Solo or team' }].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, eventType: opt.value, minMembers: '', maxMembers: '' })}
+                    style={{
+                      padding: '0.625rem 0.5rem',
+                      borderRadius: 'var(--radius)',
+                      border: form.eventType === opt.value ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      background: form.eventType === opt.value ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'var(--bg-secondary)',
+                      color: form.eventType === opt.value ? 'var(--accent)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.15s',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.8rem', fontWeight: '600' }}>{opt.label}</div>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '2px' }}>{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Group config — shown only when GROUP or BOTH */}
+              {(form.eventType === 'GROUP' || form.eventType === 'BOTH') && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                  <div>
+                    <label style={labelStyle}>
+                      Min Members <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={2}
+                      value={form.minMembers}
+                      onChange={e => setForm({ ...form, minMembers: e.target.value })}
+                      placeholder="e.g. 2"
+                      className="input-premium"
+                    />
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Minimum 2</p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>
+                      Max Members <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={form.minMembers || 2}
+                      value={form.maxMembers}
+                      onChange={e => setForm({ ...form, maxMembers: e.target.value })}
+                      placeholder="e.g. 5"
+                      className="input-premium"
+                    />
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Must be &ge; min members</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Actions */}

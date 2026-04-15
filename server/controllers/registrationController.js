@@ -29,3 +29,16 @@ exports.getEventParticipants = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.getMyRegistration = catchAsync(async (req, res, next) => {
+  const Registration = require('../models/Registration');
+  const reg = await Registration.findOne({
+    event_id: req.params.id,
+    participant_id: req.user._id,
+  }).lean();
+
+  res.status(200).json({
+    status: 'success',
+    data: { registered: !!reg },
+  });
+});

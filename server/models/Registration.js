@@ -23,13 +23,26 @@ const registrationSchema = new mongoose.Schema(
       enum: ['registered', 'waitlisted', 'cancelled'],
       default: 'registered',
     },
+
+    // ─── Group Registration Fields ──────────────────────────────────────────
+    registration_type: {
+      type: String,
+      enum: ['individual', 'group'],
+      default: 'individual',
+    },
+    group_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group',
+      default: null,
+    },
+    // ───────────────────────────────────────────────────────────────────────
   },
   {
     timestamps: true,
   }
 );
 
-// Prevent duplicate registrations
+// Prevent duplicate registrations (one entry per participant per event)
 registrationSchema.index({ participant_id: 1, event_id: 1 }, { unique: true });
 
 const Registration = mongoose.model('Registration', registrationSchema);
