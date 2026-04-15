@@ -40,8 +40,18 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
 // Implement CORS
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? ['https://unifye.in', 'https://www.unifye.in'] 
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
 app.use(cors({
-  origin: true,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new AppError('Not allowed by CORS', 403));
+    }
+  },
   credentials: true
 }));
 
