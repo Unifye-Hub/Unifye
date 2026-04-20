@@ -2,6 +2,22 @@ const profileService = require('../services/profileService');
 const catchAsync = require('../utils/catchAsync');
 
 exports.getMe = catchAsync(async (req, res, next) => {
+  // User hasn't selected a role yet (Google OAuth new user)
+  if (!req.user.role) {
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        needsRole: true,
+        user: {
+          _id: req.user._id,
+          name: req.user.name,
+          username: req.user.username,
+          email: req.user.email,
+        },
+      },
+    });
+  }
+
   const profile = await profileService.getProfile(req.user._id, req.user.role);
   res.status(200).json({
     status: 'success',

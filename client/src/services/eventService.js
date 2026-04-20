@@ -3,6 +3,7 @@ import api from './api';
 // Auth
 export const login = (data) => api.post('/auth/login', data);
 export const signup = (data) => api.post('/auth/signup', data);
+export const completeProfile = (data) => api.post('/auth/complete-profile', data);
 
 // Profile
 export const searchUsers = (q) => api.get(`/profile/search?q=${encodeURIComponent(q)}`);

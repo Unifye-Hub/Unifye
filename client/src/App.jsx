@@ -11,6 +11,8 @@ import OrganizerDashboard from './pages/OrganizerDashboard';
 import CreateEventPage from './pages/CreateEventPage';
 import ProfilePage from './pages/ProfilePage';
 import SearchPage from './pages/SearchPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
+import RoleSelectionPage from './pages/RoleSelectionPage';
 
 const App = () => {
   return (
@@ -31,6 +33,8 @@ const App = () => {
         {/* Auth — no navbar */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/auth/select-role" element={<RoleSelectionPage />} />
 
         {/* Main layout */}
         <Route element={<MainLayout />}>

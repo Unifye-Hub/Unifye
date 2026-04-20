@@ -14,10 +14,20 @@ export const AuthProvider = ({ children }) => {
       if (storedToken) {
         try {
           const res = await getMyProfile();
-          const profileData = res.data.data.profile;
+          const data = res.data.data;
+
+          // Google OAuth user who hasn't selected a role yet
+          if (data.needsRole) {
+            // Don't set user — they'll be redirected to role selection
+            setLoading(false);
+            return;
+          }
+
+          const profileData = data.profile;
           // Normalize the user object so it identically matches the login payload
           const baseUser = profileData.organizer_id || profileData.profile_id;
-          setUser(baseUser);
+          const profilePic = profileData.profile_pic_url || profileData.logo_url || null;
+          setUser({ ...baseUser, profilePic });
         } catch {
           localStorage.removeItem('token');
           setToken(null);

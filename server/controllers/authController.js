@@ -12,3 +12,8 @@ exports.login = catchAsync(async (req, res, next) => {
   const user = await authService.login(identifier, password);
   sendTokenResponse(user, 200, res);
 });
+
+exports.completeProfile = catchAsync(async (req, res, next) => {
+  const user = await authService.completeProfile(req.user._id, req.body);
+  sendTokenResponse(user, 200, res);
+});

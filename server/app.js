@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 
+const passport = require('./config/passport');
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./middleware/errorMiddleware');
 
@@ -14,6 +15,7 @@ const eventRoutes = require('./routes/eventRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const friendRoutes = require('./routes/friendRoutes');
+const googleAuthRoutes = require('./routes/googleAuthRoutes');
 
 const app = express();
 
@@ -40,6 +42,7 @@ app.use('/api', limiter);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
+app.use(passport.initialize());
 
 // Implement CORS
 const allowedOrigins = [
@@ -67,6 +70,7 @@ app.use(cors({
 }));
 
 // 2) ROUTES
+app.use('/auth', googleAuthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/events', eventRoutes);

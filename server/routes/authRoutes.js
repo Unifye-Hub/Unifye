@@ -3,6 +3,8 @@ const { body } = require('express-validator');
 const authController = require('../controllers/authController');
 const { validateRequest } = require('../middleware/validationMiddleware');
 
+const { protect } = require('../middleware/authMiddleware');
+
 const router = express.Router();
 
 router.post(
@@ -33,6 +35,18 @@ router.post(
   ],
   validateRequest,
   authController.login
+);
+
+router.post(
+  '/complete-profile',
+  protect,
+  [
+    body('role')
+      .isIn(['participant', 'organizer'])
+      .withMessage('Role must be participant or organizer'),
+  ],
+  validateRequest,
+  authController.completeProfile
 );
 
 module.exports = router;

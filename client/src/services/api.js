@@ -29,8 +29,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      const path = window.location.pathname;
+      // Don't redirect when already on auth pages — 401 is expected there (wrong credentials)
+      if (path !== '/login' && path !== '/signup' && !path.startsWith('/auth/')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

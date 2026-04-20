@@ -64,6 +64,7 @@ const Navbar = () => {
   );
 
   const initials = (user?.name || user?.full_name || user?.company_name || 'U')[0]?.toUpperCase();
+  const avatarUrl = user?.profilePic && !user.profilePic.includes('default') ? user.profilePic : null;
 
   return (
     <nav
@@ -163,14 +164,18 @@ const Navbar = () => {
                     cursor: 'pointer', color: 'var(--text-primary)',
                   }}
                 >
-                  <div style={{
-                    width: '24px', height: '24px', borderRadius: '6px',
-                    background: 'var(--accent-dim)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.7rem', fontWeight: '700', color: 'var(--accent)',
-                  }}>
-                    {initials}
-                  </div>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" style={{ width: '24px', height: '24px', borderRadius: '6px', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{
+                      width: '24px', height: '24px', borderRadius: '6px',
+                      background: 'var(--accent-dim)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.7rem', fontWeight: '700', color: 'var(--accent)',
+                    }}>
+                      {initials}
+                    </div>
+                  )}
                   <span style={{ fontSize: '0.8125rem', fontWeight: '500' }}>
                     {user?.name?.split(' ')[0] || user?.full_name?.split(' ')[0] || user?.company_name || 'Account'}
                   </span>

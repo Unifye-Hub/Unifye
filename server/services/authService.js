@@ -49,6 +49,39 @@ class AuthService {
 
     return user;
   }
+  async completeProfile(userId, data) {
+    const { role, company_name, profilePicUrl } = data;
+
+    if (!role || !['participant', 'organizer'].includes(role)) {
+      throw new AppError('Please select a valid role (participant or organizer)', 400);
+    }
+
+    const user = await User.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    if (user.role) {
+      throw new AppError('Profile already completed', 400);
+    }
+
+    user.role = role;
+    await user.save({ validateBeforeSave: false });
+
+    if (role === 'organizer') {
+      await OrganizerProfile.create({
+        organizer_id: user._id,
+        company_name: company_name || user.name,
+      });
+    } else {
+      await ParticipantProfile.create({
+        profile_id: user._id,
+        full_name: user.name,
+        profile_pic_url: profilePicUrl || 'default_pic.png',
+        skills_list: [],
+      });
+    }
+
+    return user;
+  }
 }
 
 module.exports = new AuthService();

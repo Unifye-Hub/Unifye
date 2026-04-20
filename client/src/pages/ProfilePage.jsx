@@ -10,7 +10,7 @@ import { getFriendStatus, sendFriendRequest, acceptFriendRequest } from '../serv
 
 const ProfilePage = () => {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const isOwnProfile = !id || id === user?._id;
 
   const [profile, setProfile] = useState(null);
@@ -117,6 +117,12 @@ const ProfilePage = () => {
       setProfile(updatedP);
       setIsEditing(false);
       toast.success('Profile updated successfully!');
+
+      // Sync profile picture to navbar via AuthContext
+      const newPic = updatedP.profile_pic_url || updatedP.logo_url || null;
+      if (user && newPic !== user.profilePic) {
+        setUser(prev => ({ ...prev, profilePic: newPic }));
+      }
       
       // Update form with clean data
       const profileRole = updatedP.profile_id?.role || updatedP.organizer_id?.role || user?.role;
@@ -507,9 +513,17 @@ const ProfilePage = () => {
                         {skill}
                       </span>
                     ))}
-                    <span style={{ padding: '0.35rem 0.6rem', background: 'var(--accent)', borderRadius: '100px', fontSize: '0.75rem', color: '#fff', fontWeight: 'bold' }}>
-                      +
-                    </span>
+                    {isOwnProfile && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        style={{ padding: '0.35rem 0.6rem', background: 'var(--accent)', borderRadius: '100px', fontSize: '0.75rem', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', transition: 'opacity 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                        title="Edit skills"
+                      >
+                        +
+                      </button>
+                    )}
                   </div>
                 )}
 

@@ -275,8 +275,8 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {/* If group is locked, disable actions */}
             {group.status === 'LOCKED' ? (
-              <div style={{ textAlign: 'center', padding: '0.75rem', background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', borderRadius: 'var(--radius)', fontSize: '0.8rem', fontWeight: '600' }}>
-                <Check size={14} style={{ inlineSize: '14px', verticalAlign: 'text-bottom', marginRight: '4px' }}/>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.625rem', background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', borderRadius: 'var(--radius)', fontSize: '0.8rem', fontWeight: '600' }}>
+                <Check size={14} />
                 Group Registered and Locked
               </div>
             ) : (
