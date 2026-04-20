@@ -8,6 +8,17 @@ const router = express.Router();
 
 router.use(protect);
 
+// Only participants can use the friend system
+router.use((req, res, next) => {
+  if (req.user.role !== 'participant') {
+    return res.status(403).json({
+      status: 'fail',
+      message: 'Friend system is only available for participants',
+    });
+  }
+  next();
+});
+
 router.post(
   '/request/:userId',
   [param('userId').notEmpty().withMessage('User ID is required')],

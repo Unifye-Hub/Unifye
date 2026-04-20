@@ -41,8 +41,6 @@ class EventService {
     // Normalise groupConfig from multer flat fields or JSON
     parseGroupConfig(eventData);
 
-    console.log("Incoming eventData:", eventData);
-
     if (
       eventData.eventType === "GROUP" ||
       eventData.eventType === "BOTH"
@@ -80,10 +78,9 @@ class EventService {
     const excludedFields = ['page', 'sort', 'limit', 'fields', 'search'];
     excludedFields.forEach((el) => delete queryObj[el]);
 
-    // Handle search by title text index
-    let mongooseQuery = Event.find(queryObj);
+    const filter = { ...queryObj };
     if (query.search) {
-      mongooseQuery = mongooseQuery.find({ $text: { $search: query.search } });
+      filter.$text = { $search: query.search };
     }
 
     // Pagination
@@ -91,22 +88,19 @@ class EventService {
     const limit = query.limit * 1 || 10;
     const skip = (page - 1) * limit;
 
-    mongooseQuery = mongooseQuery.skip(skip).limit(limit).populate({
-      path: 'organizer_id',
-      select: 'name email',
-    });
+    // Run data query and count query in PARALLEL (not sequential)
+    const [events, totalEvents] = await Promise.all([
+      Event.find(filter)
+        .select('title type cover_image date_time location status capacity current_registrations eventType groupConfig organizer_id')
+        .skip(skip)
+        .limit(limit)
+        .populate({ path: 'organizer_id', select: 'name email' })
+        .sort({ date_time: -1 })
+        .lean(),
+      Event.countDocuments(filter),
+    ]);
 
-    // Execute query (leaning to optimize read queries)
-    const events = await mongooseQuery.lean();
-    
-    // Count total pages
-    let totalQuery = Event.countDocuments(queryObj);
-    if (query.search) {
-      totalQuery = Event.countDocuments({ ...queryObj, $text: { $search: query.search }});
-    }
-    const totalEvents = await totalQuery;
     const totalPages = Math.ceil(totalEvents / limit);
-
     return { events, totalPages, currentPage: page };
   }
 

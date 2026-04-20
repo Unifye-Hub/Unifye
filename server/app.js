@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const compression = require('compression');
 
 const passport = require('./config/passport');
 const AppError = require('./utils/appError');
@@ -37,6 +38,9 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again in an hour!',
 });
 app.use('/api', limiter);
+
+// Compress all responses
+app.use(compression());
 
 // Body parser, reading data from body into req.body
 app.use(express.json({ limit: '10kb' }));
