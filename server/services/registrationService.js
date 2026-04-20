@@ -63,48 +63,57 @@ class RegistrationService {
       );
     }
 
-    // Check none of the group members are already registered
-    const memberIds = group.members.map((m) => m.toString());
+    // Find existing individual registrations for group members
     const existingRegs = await Registration.find({
       event_id: event._id,
       participant_id: { $in: group.members },
     }).session(session);
 
+    const registeredMemberIds = new Set(
+      existingRegs.map((r) => r.participant_id.toString())
+    );
+
+    // Convert existing individual registrations to group type
     if (existingRegs.length > 0) {
-      throw new AppError(
-        'One or more group members are already registered for this event',
-        400
+      await Registration.updateMany(
+        { event_id: event._id, participant_id: { $in: group.members } },
+        { registration_type: 'group', group_id: group._id },
+        { session }
       );
     }
 
-    // Create one Registration doc per group member
-    const registrationDocs = group.members.map((memberId) => ({
-      participant_id: memberId,
-      event_id: event._id,
-      registration_type: 'group',
-      group_id: group._id,
-    }));
+    // Create registrations for members who aren't registered yet
+    const unregisteredMembers = group.members.filter(
+      (m) => !registeredMemberIds.has(m.toString())
+    );
 
-    const registrations = await Registration.create(registrationDocs, { session });
+    let newRegistrations = [];
+    if (unregisteredMembers.length > 0) {
+      const newDocs = unregisteredMembers.map((memberId) => ({
+        participant_id: memberId,
+        event_id: event._id,
+        registration_type: 'group',
+        group_id: group._id,
+      }));
+      newRegistrations = await Registration.create(newDocs, { session });
+    }
 
-    // Update group status to LOCKED after successful registration
+    // Lock the group
     await Group.findByIdAndUpdate(group._id, { status: 'LOCKED' }, { session });
 
-    return registrations;
+    // Return only the NEW registrations count (existing ones are already counted)
+    return newRegistrations;
   }
 
   // ─── Main Entry Point ──────────────────────────────────────────────────────
   /**
-   * Registers a participant (or their group) for an event.
+   * Registers a participant (or finalizes their group) for an event.
    *
    * eventType rules:
-   *   INDIVIDUAL → standard solo registration only
-   *   GROUP      → must be in a group; leader registers all members as a unit
-   *   BOTH       → solo registration if not in a group; group registration if in a group
-   *
-   * @param {string} eventId       - The event's ObjectId
-   * @param {string} participantId - The requesting user's ObjectId
-   * @returns registration doc(s)
+   *   INDIVIDUAL → standard solo registration
+   *   GROUP/BOTH → individual registration first; when called again by a
+   *                group leader, converts individual regs to group type,
+   *                registers remaining members, and locks the group.
    */
   async registerForEvent(eventId, participantId) {
     const session = await mongoose.startSession();
@@ -131,27 +140,23 @@ class RegistrationService {
         event.current_registrations += 1;
       }
 
-      // ── GROUP ───────────────────────────────────────────────────────────────
-      // For GROUP events, user MUST be part of a group and the leader registers the group.
-      else if (eventType === 'GROUP') {
-        result = await this._registerGroup(event, participantId, session);
-        event.current_registrations += result.length;
-      }
-
-      // ── BOTH ────────────────────────────────────────────────────────────────
-      else if (eventType === 'BOTH') {
-        // Check if the user is in a group for this event
+      // ── GROUP / BOTH ───────────────────────────────────────────────────────
+      // Flow: user registers individually first, then forms/joins a group,
+      // then the group leader finalizes group registration (locks the group
+      // and converts individual registrations to group type).
+      else if (eventType === 'GROUP' || eventType === 'BOTH') {
         const userGroup = await Group.findOne({
           eventId,
           members: participantId,
+          leaderId: participantId,
         }).session(session);
 
-        if (userGroup) {
-          // User is in a group → treat as group registration
+        if (userGroup && userGroup.status !== 'LOCKED') {
+          // User is a group leader → finalize group registration
           result = await this._registerGroup(event, participantId, session);
           event.current_registrations += result.length;
         } else {
-          // No group → fall back to individual registration
+          // No group or not a leader → individual registration
           result = await this._registerIndividual(eventId, participantId, session);
           event.current_registrations += 1;
         }

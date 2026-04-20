@@ -8,7 +8,7 @@ import { Zap, Eye, EyeOff, Users, Building2 } from 'lucide-react';
 const SignupPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'participant' });
+  const [form, setForm] = useState({ name: '', username: '', email: '', password: '', role: 'participant' });
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
 
@@ -20,7 +20,8 @@ const SignupPage = () => {
       const { token } = res.data;
       localStorage.setItem('token', token);
       const profileRes = await getMyProfile();
-      const user = profileRes.data.data.profile;
+      const profileData = profileRes.data.data.profile;
+      const user = profileData.organizer_id || profileData.profile_id;
       login({ token, user });
       toast.success('Account created! Welcome 🎉');
       if (form.role === 'organizer') navigate('/organizer');
@@ -73,6 +74,30 @@ const SignupPage = () => {
                 placeholder="Your full name"
                 className="input-premium"
               />
+            </div>
+
+            {/* Username */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '500', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                Username
+              </label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', fontSize: '0.875rem', pointerEvents: 'none' }}>@</span>
+                <input
+                  type="text"
+                  required
+                  minLength={3}
+                  maxLength={30}
+                  pattern="^[a-zA-Z0-9_]+$"
+                  title="Letters, numbers, and underscores only"
+                  autoComplete="off"
+                  value={form.username}
+                  onChange={e => setForm({ ...form, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                  placeholder="your_username"
+                  className="input-premium"
+                  style={{ paddingLeft: '1.75rem' }}
+                />
+              </div>
             </div>
 
             {/* Email */}

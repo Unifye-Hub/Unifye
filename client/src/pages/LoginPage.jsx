@@ -8,7 +8,7 @@ import { Zap, Eye, EyeOff } from 'lucide-react';
 const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ identifier: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
 
@@ -20,7 +20,8 @@ const LoginPage = () => {
       const { token } = res.data;
       localStorage.setItem('token', token);
       const profileRes = await getMyProfile();
-      const user = profileRes.data.data.profile;
+      const profileData = profileRes.data.data.profile;
+      const user = profileData.organizer_id || profileData.profile_id;
       login({ token, user });
       toast.success('Welcome back!');
       const role = res.data.data?.user?.role;
@@ -75,15 +76,15 @@ const LoginPage = () => {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '500', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                Email
+                Email or Username
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 autoComplete="username"
-                value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                placeholder="you@example.com"
+                value={form.identifier}
+                onChange={e => setForm({ ...form, identifier: e.target.value })}
+                placeholder="you@example.com or username"
                 className="input-premium"
               />
             </div>

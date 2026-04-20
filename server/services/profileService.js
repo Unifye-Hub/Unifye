@@ -6,9 +6,9 @@ class ProfileService {
   async getProfile(userId, role) {
     let profile;
     if (role === 'organizer') {
-      profile = await OrganizerProfile.findOne({ organizer_id: userId }).populate('organizer_id', 'name email role');
+      profile = await OrganizerProfile.findOne({ organizer_id: userId }).populate('organizer_id', 'name username email role');
     } else {
-      profile = await ParticipantProfile.findOne({ profile_id: userId }).populate('profile_id', 'name email role');
+      profile = await ParticipantProfile.findOne({ profile_id: userId }).populate('profile_id', 'name username email role');
     }
 
     if (!profile) {
@@ -38,7 +38,7 @@ class ProfileService {
           new: true,
           runValidators: true,
         }
-      ).populate('organizer_id', 'name email role');
+      ).populate('organizer_id', 'name username email role');
     } else {
       profile = await ParticipantProfile.findOneAndUpdate(
         { profile_id: userId },
@@ -47,7 +47,7 @@ class ProfileService {
           new: true,
           runValidators: true,
         }
-      ).populate('profile_id', 'name email role');
+      ).populate('profile_id', 'name username email role');
     }
 
     if (!profile) {
@@ -72,7 +72,7 @@ class ProfileService {
 
     if (user.role === 'participant') {
       const registrations = await Registration.find({ participant_id: userId }).populate('event_id');
-      profileData.events = registrations.map(reg => reg.event_id);
+      profileData.events = registrations.map(reg => reg.event_id).filter(Boolean);
     } else if (user.role === 'organizer') {
       const events = await Event.find({ organizer_id: userId });
       profileData.events = events;
@@ -98,9 +98,9 @@ class ProfileService {
     
     const regex = new RegExp(query, 'i');
     const users = await User.find({
-      $or: [{ name: regex }, { email: regex }]
+      $or: [{ name: regex }, { username: regex }, { email: regex }]
     })
-      .select('name email role')
+      .select('name username email role')
       .limit(limit)
       .lean();
 

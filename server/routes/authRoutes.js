@@ -9,6 +9,10 @@ router.post(
   '/signup',
   [
     body('name').notEmpty().withMessage('Name is required'),
+    body('username')
+      .notEmpty().withMessage('Username is required')
+      .isLength({ min: 3 }).withMessage('Username must be at least 3 characters')
+      .matches(/^[a-zA-Z0-9_]+$/).withMessage('Username can only contain letters, numbers, and underscores'),
     body('email').isEmail().withMessage('Valid email is required'),
     body('password')
       .isLength({ min: 8 })
@@ -24,7 +28,7 @@ router.post(
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Valid email is required'),
+    body('identifier').notEmpty().withMessage('Email or username is required'),
     body('password').notEmpty().withMessage('Password is required'),
   ],
   validateRequest,

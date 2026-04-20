@@ -192,7 +192,7 @@ const ProfilePage = () => {
   const profileRole = profile?.profile_id?.role || profile?.organizer_id?.role || user?.role;
   const isParticipant = profileRole === 'participant';
   const displayName = isParticipant ? (form.full_name || user?.name) : (form.company_name || user?.name);
-  const displayUsername = profile?.profile_id?.email?.split('@')[0] || profile?.organizer_id?.email?.split('@')[0] || user?.email?.split('@')[0];
+  const displayUsername = profile?.profile_id?.username || profile?.organizer_id?.username || user?.username || profile?.profile_id?.email?.split('@')[0] || profile?.organizer_id?.email?.split('@')[0] || user?.email?.split('@')[0];
   const skillsArray = isParticipant && form.skills_list ? form.skills_list.split(',').map(s => s.trim()).filter(Boolean) : [];
   const joinedDate = new Date(profile?.createdAt || user?.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -443,7 +443,7 @@ const ProfilePage = () => {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', marginTop: '1.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                     <Briefcase size={16} />
-                    <span style={{ textTransform: 'capitalize' }}>{user?.role}</span>
+                    <span style={{ textTransform: 'capitalize' }}>{profileRole}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                     <CalendarDays size={16} />
@@ -552,9 +552,9 @@ const ProfilePage = () => {
                   {activeTab === 'activity' && (
                     <div style={{ paddingTop: '0.5rem' }}>
                       {profileRole === 'participant' ? (
-                        profile?.events && profile.events.length > 0 ? (
+                        profile?.events && profile.events.filter(Boolean).length > 0 ? (
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                            {profile.events.map(ev => (
+                            {profile.events.filter(Boolean).map(ev => (
                               <EventCard key={ev._id} event={ev} />
                             ))}
                           </div>

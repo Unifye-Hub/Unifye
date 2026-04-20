@@ -5,11 +5,12 @@ const AppError = require('../utils/appError');
 
 class AuthService {
   async signup(data) {
-    const { name, email, password, role } = data;
+    const { name, username, email, password, role } = data;
 
     // Create the base user
     const user = await User.create({
       name,
+      username,
       email,
       password,
       role,
@@ -32,16 +33,18 @@ class AuthService {
     return user;
   }
 
-  async login(email, password) {
-    if (!email || !password) {
-      throw new AppError('Please provide email and password!', 400);
+  async login(identifier, password) {
+    if (!identifier || !password) {
+      throw new AppError('Please provide email/username and password!', 400);
     }
 
-    // Find the user and include the password field implicitly specified select: false
-    const user = await User.findOne({ email }).select('+password');
+    // Find user by email or username
+    const user = await User.findOne({
+      $or: [{ email: identifier.toLowerCase() }, { username: identifier.toLowerCase() }],
+    }).select('+password');
 
     if (!user || !(await user.correctPassword(password, user.password))) {
-      throw new AppError('Incorrect email or password', 401);
+      throw new AppError('Incorrect email/username or password', 401);
     }
 
     return user;

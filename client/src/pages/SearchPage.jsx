@@ -96,7 +96,7 @@ const SearchPage = () => {
                         {u.name}
                       </Link>
                     </h3>
-                    <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem', margin: 0 }}>{u.email}</p>
+                    <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem', margin: 0 }}>@{u.username || u.email}</p>
                   </div>
                 </div>
 

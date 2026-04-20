@@ -25,7 +25,7 @@ const formatDate = (dt) =>
 const EventDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
@@ -41,6 +41,12 @@ const EventDetailsPage = () => {
   const [groupCount, setGroupCount] = useState(0);
 
   useEffect(() => {
+    // Wait for auth state to resolve before fetching user-specific data.
+    // Without this gate, the effect runs while user is still null (auth loading),
+    // causing registration status and role-gated UI to be skipped on first render.
+    if (authLoading) return;
+
+    setLoading(true);
     (async () => {
       try {
         const [eventRes, regRes] = await Promise.allSettled([
@@ -72,7 +78,7 @@ const EventDetailsPage = () => {
         setLoading(false);
       }
     })();
-  }, [id, navigate, user]);
+  }, [id, navigate, user, authLoading]);
 
   const handleRegister = async () => {
     if (!token) { navigate('/login'); return; }
@@ -107,7 +113,7 @@ const EventDetailsPage = () => {
     }
   };
 
-  if (loading) return <div style={{ minHeight: 'calc(100vh - 52px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>;
+  if (authLoading || loading) return <div style={{ minHeight: 'calc(100vh - 52px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>;
   if (!event) return null;
 
   const badgeClass = EVENT_TYPE_BADGE[event.type] || 'badge-seminar';
@@ -223,8 +229,8 @@ const EventDetailsPage = () => {
               </div>
             )}
 
-            {/* Group Panel — visible to logged-in participants */}
-            {user?.role === 'participant' && (
+            {/* Group Panel — visible only to registered participants */}
+            {user?.role === 'participant' && registered && (
               <GroupPanel
                 event={event}
                 currentUserId={user._id}

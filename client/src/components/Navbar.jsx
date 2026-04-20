@@ -63,7 +63,7 @@ const Navbar = () => {
     </Link>
   );
 
-  const initials = (user?.full_name || user?.company_name || 'U')[0]?.toUpperCase();
+  const initials = (user?.name || user?.full_name || user?.company_name || 'U')[0]?.toUpperCase();
 
   return (
     <nav
@@ -172,7 +172,7 @@ const Navbar = () => {
                     {initials}
                   </div>
                   <span style={{ fontSize: '0.8125rem', fontWeight: '500' }}>
-                    {user?.full_name?.split(' ')[0] || user?.company_name || 'Account'}
+                    {user?.name?.split(' ')[0] || user?.full_name?.split(' ')[0] || user?.company_name || 'Account'}
                   </span>
                   <ChevronDown size={13} style={{ color: 'var(--text-tertiary)' }} />
                 </button>
