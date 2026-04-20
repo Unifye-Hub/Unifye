@@ -1,12 +1,17 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.MODE === 'development' 
-    ? 'http://localhost:5001/api' 
-    : 'https://unifye.onrender.com/api');
+// Strictly define the base backend server origin (e.g., for OAuth redirects)
+export const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  (import.meta.env.MODE === 'development'
+    ? 'http://localhost:5001'
+    : 'https://unifye.onrender.com');
+
+// Define API endpoint root explicitly
+export const API_URL = import.meta.env.VITE_API_URL || `${BACKEND_URL}/api`;
 
 const api = axios.create({
-  baseURL,
+  baseURL: API_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

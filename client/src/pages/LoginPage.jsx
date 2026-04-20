@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login as loginApi, getMyProfile } from '../services/eventService';
+import { BACKEND_URL } from '../services/api';
 import toast from 'react-hot-toast';
 import { Zap, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
@@ -206,7 +207,7 @@ const LoginPage = () => {
 
             {/* Google OAuth */}
             <a
-              href={`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/google`}
+              href={`${BACKEND_URL}/auth/google`}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.625rem',
                 width: '100%', padding: '0.75rem',
