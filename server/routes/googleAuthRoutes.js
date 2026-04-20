@@ -5,8 +5,8 @@ const { signToken } = require('../utils/jwtUtils');
 const router = express.Router();
 
 const getClientURL = () => {
-  if (process.env.NODE_ENV === 'production') return 'https://unifye.in';
-  return 'http://localhost:5174';
+  if (process.env.NODE_ENV === 'production') return 'https://www.unifye.in';
+  return 'http://localhost:5173';
 };
 
 // GET /auth/google — Redirect to Google consent screen
