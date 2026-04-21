@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Upload, X, ImagePlus } from 'lucide-react';
 import { createEvent, getEvent, updateEvent } from '../services/eventService';
 import toast from 'react-hot-toast';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const EVENT_TYPES = ['hackathon', 'bootcamp', 'competition', 'workshop', 'seminar'];
 
@@ -281,13 +283,17 @@ const CreateEventPage = () => {
             {/* Description */}
             <div>
               <label style={labelStyle}>Description</label>
-              <textarea
-                rows={4}
+              <ReactQuill 
+                theme="snow"
                 value={form.description}
-                onChange={e => setForm({ ...form, description: e.target.value })}
+                onChange={value => setForm({ ...form, description: value })}
                 placeholder="Tell participants what this event is about..."
-                className="input-premium"
-                style={{ resize: 'none', lineHeight: '1.6' }}
+                style={{ 
+                  background: 'var(--bg-card)', 
+                  color: 'var(--text-primary)', 
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid var(--border)' 
+                }}
               />
             </div>
 

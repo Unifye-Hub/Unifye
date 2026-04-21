@@ -7,6 +7,7 @@ import { getGroupsByEvent } from '../services/groupService';
 import { useAuth } from '../context/AuthContext';
 import { Spinner } from '../components/Loader';
 import GroupPanel from '../components/GroupPanel';
+import 'react-quill/dist/quill.snow.css';
 
 const EVENT_TYPE_BADGE = {
   hackathon: 'badge-hackathon',
@@ -223,9 +224,13 @@ const EventDetailsPage = () => {
                 <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
                   About this event
                 </h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: '1.7' }}>
-                  {event.description}
-                </p>
+                <div className="ql-snow">
+                  <div 
+                    className="ql-editor" 
+                    style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: '1.7', padding: 0 }}
+                    dangerouslySetInnerHTML={{ __html: event.description }}
+                  />
+                </div>
               </div>
             )}
 
