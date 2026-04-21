@@ -419,7 +419,7 @@ const OrganizerDashboard = () => {
                       </div>
 
                       {/* Charts Row */}
-                      <div style={{ display: 'grid', gridTemplateColumns: hasGroups && analytics.typeData.length > 0 ? '1fr 1fr' : '1fr', gap: '1rem' }}>
+                      <div className={`grid gap-4 ${hasGroups && analytics.typeData.length > 0 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
 
                         {/* Pie Chart — Seat Usage */}
                         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.25rem' }}>

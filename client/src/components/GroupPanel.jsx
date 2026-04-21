@@ -182,6 +182,7 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
   };
 
   const maxMembers = event?.groupConfig?.maxMembers || '∞';
+  const isClosed = event && new Date(event.date_time) < new Date();
   
   return (
     <div style={{
@@ -236,7 +237,7 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
           </div>
 
           {/* Pending Requests Array (Leader only) */}
-          {isLeader && pendingRequests.length > 0 && group.status !== 'LOCKED' && (
+          {isLeader && pendingRequests.length > 0 && group.status !== 'LOCKED' && !isClosed && (
             <div style={{ marginBottom: '1rem' }}>
               <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem' }}>
                 Join Requests
@@ -278,6 +279,10 @@ const GroupCard = ({ group, currentUserId, onAction, eventStatus, event, userIsI
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.625rem', background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', borderRadius: 'var(--radius)', fontSize: '0.8rem', fontWeight: '600' }}>
                 <Check size={14} />
                 Group Registered and Locked
+              </div>
+            ) : isClosed ? (
+              <div style={{ textAlign: 'center', padding: '0.5rem', color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>
+                Event is closed. No further changes can be made.
               </div>
             ) : (
               <>
@@ -387,6 +392,7 @@ const GroupPanel = ({ event, currentUserId, onRegisterSuccess }) => {
 
   const { eventType, groupConfig } = event;
   const supportsGroups = eventType === 'GROUP' || eventType === 'BOTH';
+  const isClosed = event && new Date(event.date_time) < new Date();
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -483,7 +489,7 @@ const GroupPanel = ({ event, currentUserId, onRegisterSuccess }) => {
             </p>
           )}
         </div>
-        {event.status === 'upcoming' && (
+        {event.status === 'upcoming' && !isClosed && (
           <button
             onClick={() => setShowCreateForm(v => !v)}
             className="btn-secondary"

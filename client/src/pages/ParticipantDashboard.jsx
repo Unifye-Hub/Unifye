@@ -57,7 +57,7 @@ const ParticipantDashboard = () => {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '1.5rem', alignItems: 'start' }}>
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 items-start">
           {/* Profile Card */}
           <div className="glass-strong" style={{ borderRadius: 'var(--radius-xl)', padding: '1.5rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.25rem' }}>

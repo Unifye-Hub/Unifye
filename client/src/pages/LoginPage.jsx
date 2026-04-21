@@ -5,6 +5,8 @@ import { login as loginApi, getMyProfile } from '../services/eventService';
 import { BACKEND_URL } from '../services/api';
 import toast from 'react-hot-toast';
 import { Zap, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import UnifyeDarkLogo from '../assets/UnifyeDarkLogo.png';
+import UnifyeLightLogo from '../assets/UnifyeLightLogo.png';
 
 const errorStyle = {
   display: 'flex', alignItems: 'center', gap: '0.375rem',
@@ -92,14 +94,14 @@ const LoginPage = () => {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
-            width: '44px', height: '44px',
-            background: 'var(--accent)',
+            width: '56px', height: '56px',
             borderRadius: '14px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 1rem',
-            boxShadow: '0 0 24px rgba(124,111,255,0.4)',
+            overflow: 'hidden'
           }}>
-            <Zap size={20} color="#fff" strokeWidth={2.5} />
+            <img src={UnifyeLightLogo} alt="Unifye Logo" className="logo-default" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img src={UnifyeDarkLogo} alt="Unifye Logo" className="logo-light-theme" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h1 style={{ fontSize: '1.375rem', fontWeight: '700', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '0.375rem' }}>
             Welcome back
@@ -239,7 +241,13 @@ const LoginPage = () => {
         </p>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        .logo-light-theme { display: none; }
+        .logo-default { display: block; }
+        [data-theme='light'] .logo-light-theme { display: block; }
+        [data-theme='light'] .logo-default { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 };

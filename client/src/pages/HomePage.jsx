@@ -57,9 +57,9 @@ const HomePage = () => {
               <h2 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>Organizer Mode Active</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>You are viewing the public feed. Go to your dashboard to manage or create new events.</p>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <Link to="/organizer" className="btn-secondary" style={{ padding: '0.625rem 1.25rem', textDecoration: 'none' }}>Go to Dashboard</Link>
-              <Link to="/create-event" style={{ background: '#FF4B4B', color: '#fff', padding: '0.625rem 1.25rem', borderRadius: '100px', fontWeight: '600', textDecoration: 'none', fontSize: '0.875rem' }}>+ Create Event</Link>
+            <div className="flex flex-wrap gap-3 w-full md:w-auto mt-2 md:mt-0">
+              <Link to="/organizer" className="btn-secondary" style={{ padding: '0.625rem 1.25rem', textDecoration: 'none', flex: '1 1 140px', justifyContent: 'center', whiteSpace: 'nowrap' }}>Go to Dashboard</Link>
+              <Link to="/create-event" style={{ background: '#FF4B4B', color: '#fff', padding: '0.625rem 1.25rem', borderRadius: '100px', fontWeight: '600', textDecoration: 'none', fontSize: '0.875rem', flex: '1 1 140px', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}>+ Create Event</Link>
             </div>
           </div>
         )}

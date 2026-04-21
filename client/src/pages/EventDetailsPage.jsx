@@ -118,6 +118,7 @@ const EventDetailsPage = () => {
   if (!event) return null;
 
   const badgeClass = EVENT_TYPE_BADGE[event.type] || 'badge-seminar';
+  const isClosed = new Date(event.date_time) < new Date();
   const isFull = event.capacity && event.current_registrations >= event.capacity;
   const pct = event.capacity
     ? Math.min(Math.round(((event.current_registrations ?? 0) / event.capacity) * 100), 100)
@@ -152,7 +153,7 @@ const EventDetailsPage = () => {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem', alignItems: 'start' }}>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8 items-start">
           {/* Main */}
           <div>
             <span className={`badge ${badgeClass}`} style={{ marginBottom: '0.875rem', display: 'inline-block' }}>
@@ -176,7 +177,7 @@ const EventDetailsPage = () => {
               {[
                 { icon: Calendar, label: 'Date & Time', value: formatDate(event.date_time) },
                 { icon: Users, label: 'Organizer', value: organizerName },
-                { icon: Tag, label: 'Status', value: event.status },
+                { icon: Tag, label: 'Status', value: isClosed ? 'closed' : event.status },
                 event.capacity && { icon: Users, label: 'Capacity', value: `${event.current_registrations ?? 0} / ${event.capacity}` },
               ].filter(Boolean).map(({ icon: Icon, label, value }) => (
                 <div
@@ -192,7 +193,7 @@ const EventDetailsPage = () => {
                   </div>
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: '500', lineHeight: '1.4' }}>
                     {label === 'Status' ? (
-                      <span className={`badge badge-${event.status}`}>{value}</span>
+                      <span className={`badge badge-${isClosed ? 'completed' : event.status}`}>{value}</span>
                     ) : value}
                   </p>
                 </div>
@@ -297,7 +298,7 @@ const EventDetailsPage = () => {
                 )
               )}
 
-              {user?.role === 'participant' && event.status === 'upcoming' && (
+              {user?.role === 'participant' && event.status === 'upcoming' && !isClosed && (
                 <>
                   {/* Register Now button — shown for ALL event types */}
                   <button
@@ -338,7 +339,7 @@ const EventDetailsPage = () => {
                 </>
               )}
 
-              {!user && event.status === 'upcoming' && (
+              {!user && event.status === 'upcoming' && !isClosed && (
                 <div>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center', marginBottom: '0.875rem' }}>
                     Sign in to register for this event
@@ -349,7 +350,7 @@ const EventDetailsPage = () => {
                 </div>
               )}
 
-              {user?.role === 'organizer' && (
+              {user?.role === 'organizer' && !isClosed && (
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
                   Switch to a participant account to register.
                 </p>

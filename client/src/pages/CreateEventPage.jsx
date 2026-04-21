@@ -229,7 +229,7 @@ const CreateEventPage = () => {
             </div>
 
             {/* Type + Capacity */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label style={labelStyle}>Event Type <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <select
@@ -257,7 +257,7 @@ const CreateEventPage = () => {
             </div>
 
             {/* Date + Location */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label style={labelStyle}>Date & Time <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input
@@ -281,19 +281,18 @@ const CreateEventPage = () => {
             </div>
 
             {/* Description */}
-            <div>
+            <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
+              <style>{`
+                .quill { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; background: var(--bg-card); color: var(--text-primary); }
+                .ql-toolbar { border: none !important; border-bottom: 1px solid var(--border) !important; display: flex; flex-wrap: wrap; background: var(--bg-secondary); }
+                .ql-container { border: none !important; min-height: 120px; }
+              `}</style>
               <label style={labelStyle}>Description</label>
               <ReactQuill 
                 theme="snow"
                 value={form.description}
                 onChange={value => setForm({ ...form, description: value })}
                 placeholder="Tell participants what this event is about..."
-                style={{ 
-                  background: 'var(--bg-card)', 
-                  color: 'var(--text-primary)', 
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid var(--border)' 
-                }}
               />
             </div>
 
@@ -330,7 +329,7 @@ const CreateEventPage = () => {
 
               {/* Group config — shown only when GROUP or BOTH */}
               {(form.eventType === 'GROUP' || form.eventType === 'BOTH') && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
                     <label style={labelStyle}>
                       Min Members <span style={{ color: 'var(--danger)' }}>*</span>
