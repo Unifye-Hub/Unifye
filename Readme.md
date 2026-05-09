@@ -134,20 +134,24 @@ The goal of Unifye is to create a centralized ecosystem where opportunities, lea
 #  Screenshots
 
 ##  Discover Events
+<img width="3014" height="1716" alt="image" src="https://github.com/user-attachments/assets/cb5a5533-5227-4313-9fa2-576705b946a2" />
 
 * Browse hackathons, bootcamps, workshops, and competitions
 * Search and filter events easily
 
 ##  Create Event
+<img width="3014" height="1716" alt="image" src="https://github.com/user-attachments/assets/f91149a4-b62b-4318-93e7-36e360d450d9" />
 
 * Organizers can publish professional event listings
 * Supports image uploads and rich descriptions
 
 ##  Dashboard
+<img width="1507" height="858" alt="Screenshot 2026-05-09 at 11 29 07 AM" src="https://github.com/user-attachments/assets/72fa63a2-34c1-4c27-b46f-95da341e004b" />
 
 * Personalized event tracking and analytics
 
 ##  User Profile
+<img width="1507" height="858" alt="Screenshot 2026-05-09 at 11 29 45 AM" src="https://github.com/user-attachments/assets/d949aca5-5e0e-4689-8418-f10470d40024" />
 
 * Public profile with skills and social links
 
